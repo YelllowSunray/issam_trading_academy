@@ -11,6 +11,7 @@
     "migrate:user": "node --env-file=.env.local scripts/migrate-legacy-to-user.mjs"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "firebase": "^12.17.1",
     "firebase-admin": "^14.2.0",
     "next": "16.3.0",
