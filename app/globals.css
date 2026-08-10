@@ -1127,23 +1127,24 @@ button:focus-visible {
   font-weight: 500;
 }
 
-.home-nav-links a:hover,
+.home-nav-links a:hover:not(.home-nav-cta),
 .home-nav-link:hover {
   color: var(--gold-soft);
   background: rgba(237, 234, 225, 0.04);
 }
 
 .home-nav-cta {
-  color: #181205 !important;
+  color: #181205;
   background: var(--gold);
   padding: 8px 14px;
   border-radius: 6px;
   font-weight: 700;
 }
 
+.home-nav-links a.home-nav-cta:hover,
 .home-nav-cta:hover {
   background: var(--gold-soft);
-  color: #181205 !important;
+  color: #181205;
 }
 
 .home-nav-burger {
