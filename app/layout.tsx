@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, IBM_Plex_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   title: "TradingAcadamy — Trading Academy Journal",
   description:
     "Issam's trading academy: trade journal, live P&L dashboard en MT5-sync voor serieuze traders.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

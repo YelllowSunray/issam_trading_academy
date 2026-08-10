@@ -33,7 +33,7 @@ export function BillingLock({
   unlocking?: boolean;
 }) {
   return (
-    <div className="min-h-full flex items-center justify-center p-8">
+    <div className="min-h-full flex items-center justify-center p-4 sm:p-8">
       <div className="tj-panel" style={{ maxWidth: 520, width: "100%" }}>
         <div className="tj-eyebrow">BILLING</div>
         <div className="tj-title" style={{ fontSize: 22 }}>

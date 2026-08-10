@@ -76,95 +76,107 @@ export function Topbar({
             className={`tb-tab${page === "dashboard" ? " active" : ""}`}
             onClick={() => onPageChange("dashboard")}
           >
-            P&amp;L Dashboard
+            <span className="tb-label-full">P&amp;L Dashboard</span>
+            <span className="tb-label-short">P&amp;L</span>
           </button>
         </div>
       </div>
       <div className="tb-right">
         {viewingAsLabel && (
-          <div className="mt5-status" style={{ gap: 8 }}>
+          <div className="mt5-status tb-coach" style={{ gap: 8 }}>
             Bekijkt: {viewingAsLabel}
             <button type="button" className="pl-reset-btn" onClick={onClearAsUser}>
               Stop
             </button>
           </div>
         )}
-        {accounts.length > 0 && (
-          <select
-            className="mt5-account-select"
-            value={selectedLogin || accounts[0]?.login || ""}
-            onChange={(e) => onSelectLogin(e.target.value)}
-          >
-            {accounts.map((a) => (
-              <option key={a.login} value={a.login}>
-                #{a.login}
-                {a.balance != null
-                  ? ` · ${fmtEurAbs(a.balance)}${a.currency ? ` ${a.currency}` : ""}`
-                  : ""}
-                {a.connected ? "" : " (offline)"}
-              </option>
-            ))}
-          </select>
-        )}
-        <div className="mt5-status">
-          <span className={`mt5-dot${status.connected ? " on" : ""}`} />
-          {status.connected
-            ? `MT5 verbonden${status.account?.login != null ? ` · #${status.account.login}` : ""}`
-            : "MT5 niet verbonden"}
-        </div>
-        <div className="tb-clock">
-          <div className="lbl">AMSTERDAM</div>
-          <div className="val">{clock}</div>
-        </div>
-        <div className="tb-sessions" title="Actieve sessies">
-          {activeSessions.length ? (
-            activeSessions.map((s) => (
+        <div className="tb-meta">
+          {accounts.length > 0 && (
+            <select
+              className="mt5-account-select"
+              value={selectedLogin || accounts[0]?.login || ""}
+              onChange={(e) => onSelectLogin(e.target.value)}
+            >
+              {accounts.map((a) => (
+                <option key={a.login} value={a.login}>
+                  #{a.login}
+                  {a.balance != null
+                    ? ` · ${fmtEurAbs(a.balance)}${a.currency ? ` ${a.currency}` : ""}`
+                    : ""}
+                  {a.connected ? "" : " (offline)"}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="mt5-status">
+            <span className={`mt5-dot${status.connected ? " on" : ""}`} />
+            <span className="tb-label-full">
+              {status.connected
+                ? `MT5 verbonden${status.account?.login != null ? ` · #${status.account.login}` : ""}`
+                : "MT5 niet verbonden"}
+            </span>
+            <span className="tb-label-short">
+              {status.connected ? "MT5 online" : "MT5 offline"}
+            </span>
+          </div>
+          <div className="tb-clock">
+            <div className="lbl">AMSTERDAM</div>
+            <div className="val">{clock}</div>
+          </div>
+          <div className="tb-sessions" title="Actieve sessies">
+            {activeSessions.length ? (
+              activeSessions.map((s) => (
+                <div
+                  key={s.name}
+                  title={s.name}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 3,
+                    padding: "5px 7px",
+                    borderRadius: 6,
+                    border: `1px solid ${s.color}`,
+                    background: "var(--ink-2)",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: s.color,
+                      boxShadow: `0 0 6px ${s.color}`,
+                    }}
+                  />
+                  <div style={{ fontSize: 8.5, color: "var(--paper)" }}>{s.name}</div>
+                </div>
+              ))
+            ) : (
               <div
-                key={s.name}
-                title={s.name}
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 3,
+                  fontSize: 10,
+                  color: "#565a63",
                   padding: "5px 7px",
+                  border: "1px solid var(--line)",
                   borderRadius: 6,
-                  border: `1px solid ${s.color}`,
-                  background: "var(--ink-2)",
                 }}
               >
-                <div
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: s.color,
-                    boxShadow: `0 0 6px ${s.color}`,
-                  }}
-                />
-                <div style={{ fontSize: 8.5, color: "var(--paper)" }}>{s.name}</div>
+                Geen sessie
               </div>
-            ))
-          ) : (
-            <div
-              style={{
-                fontSize: 10,
-                color: "#565a63",
-                padding: "5px 7px",
-                border: "1px solid var(--line)",
-                borderRadius: 6,
-              }}
-            >
-              Geen sessie
-            </div>
-          )}
+            )}
+          </div>
         </div>
-        {!readOnly && (
-          <button className="tb-addbtn" type="button" onClick={onAddTrade}>
-            <IconPlus /> Trade toevoegen
-          </button>
-        )}
-        <UserMenu isAdmin={isAdmin} />
+        <div className="tb-actions">
+          {!readOnly && (
+            <button className="tb-addbtn" type="button" onClick={onAddTrade}>
+              <IconPlus />
+              <span className="tb-label-full">Trade toevoegen</span>
+              <span className="tb-label-short">Toevoegen</span>
+            </button>
+          )}
+          <UserMenu isAdmin={isAdmin} />
+        </div>
       </div>
     </header>
   );
