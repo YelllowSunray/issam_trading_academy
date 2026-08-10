@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { getUsageSnapshot } from "@/lib/billing/meter";
+import { billingOwnerEmail } from "@/lib/billing/owner";
 
 export type BillingState = {
   exceeded: boolean;
@@ -23,14 +24,22 @@ export function billingPublicMessage(
   usage?: Awaited<ReturnType<typeof getUsageSnapshot>>,
 ) {
   const budget = state.budgetEur || DEFAULT_BUDGET;
+  const ownerEmail = billingOwnerEmail();
+  const customerMessage =
+    `Het maandbudget van €${budget} voor Google Firebase/database-kosten is overschreden. ` +
+    `De app is tijdelijk geblokkeerd voor iedereen. Neem contact op met Samir (${state.contactEmail}) ` +
+    `via WhatsApp of e-mail om een betaalplan voor de Google-databasekosten af te spreken. ` +
+    `Zodra dat geregeld is, zet Samir de app weer aan.`;
   return {
     exceeded: state.exceeded,
     budgetEur: budget,
     title: "App tijdelijk gestopt — databasebudget bereikt",
-    studentMessage:
-      "De academy-app is tijdelijk uitgeschakeld omdat het gezamenlijke Google Firebase/database-budget is overschreden. Probeer het later opnieuw.",
-    adminMessage:
-      `Het maandbudget van €${budget} voor Google Firebase/database-kosten is overschreden. De app blijft geblokkeerd tot de betalingsafspraken rond zijn. Neem contact op met Samir via WhatsApp om een betaalplan voor de Google-databasekosten af te spreken.`,
+    studentMessage: customerMessage,
+    adminMessage: customerMessage,
+    ownerMessage:
+      `Budget €${budget} overschreden (of handmatig geblokkeerd). Issam/studenten zien een lock-scherm met jouw WhatsApp/e-mail. ` +
+      `Ontgrendel pas nadat er een betaalplan is afgesproken.`,
+    ownerEmail,
     contactName: state.contactName,
     contactEmail: state.contactEmail,
     whatsappE164: state.whatsappE164,

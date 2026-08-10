@@ -6,6 +6,8 @@ export type BillingLockInfo = {
   title: string;
   studentMessage: string;
   adminMessage: string;
+  ownerMessage?: string;
+  ownerEmail?: string;
   contactName: string;
   contactEmail: string;
   whatsappE164: string | null;
@@ -23,15 +25,20 @@ export type BillingLockInfo = {
 
 export function BillingLock({
   info,
-  isAdmin,
+  canManageBilling,
   onUnlock,
   unlocking,
 }: {
   info: BillingLockInfo;
-  isAdmin: boolean;
+  /** Only Samir (billing owner) — not other coaches/admins. */
+  canManageBilling: boolean;
   onUnlock?: () => void;
   unlocking?: boolean;
 }) {
+  const message = canManageBilling
+    ? info.ownerMessage || info.adminMessage
+    : info.studentMessage;
+
   return (
     <div className="min-h-full flex items-center justify-center p-4 sm:p-8">
       <div className="tj-panel" style={{ maxWidth: 520, width: "100%" }}>
@@ -40,10 +47,10 @@ export function BillingLock({
           {info.title}
         </div>
         <p style={{ fontSize: 13.5, lineHeight: 1.7, color: "var(--paper-dim)" }}>
-          {isAdmin ? info.adminMessage : info.studentMessage}
+          {message}
         </p>
 
-        {isAdmin && info.usage && (
+        {canManageBilling && info.usage && (
           <div className="pl-sub2" style={{ marginTop: 14 }}>
             Geschatte app-usage {info.usage.period}: €
             {info.usage.estimatedCostEur.toFixed(2)} / €{info.budgetEur} (
@@ -51,7 +58,23 @@ export function BillingLock({
           </div>
         )}
 
-        {isAdmin && (
+        {canManageBilling ? (
+          <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
+            {onUnlock && (
+              <button
+                type="button"
+                className="tj-savebtn"
+                disabled={unlocking}
+                onClick={onUnlock}
+              >
+                {unlocking ? "Ontgrendelen…" : "Ontgrendel app (na betaalplan)"}
+              </button>
+            )}
+            <p className="pl-sub2">
+              Issam ziet een lock-scherm met jouw WhatsApp/e-mail tot jij ontgrendelt.
+            </p>
+          </div>
+        ) : (
           <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
             {info.whatsappUrl ? (
               <a
@@ -63,42 +86,21 @@ export function BillingLock({
               >
                 WhatsApp {info.contactName}
               </a>
-            ) : (
-              <div className="pl-empty">
-                WhatsApp Samir: zet <code>NEXT_PUBLIC_BILLING_WHATSAPP</code>{" "}
-                (bijv. +31612345678) in je env. Mail: {info.contactEmail}
-              </div>
-            )}
+            ) : null}
             <a
               className="pl-reset-btn"
               href={`mailto:${info.contactEmail}?subject=${encodeURIComponent(
-                "TradingAcadamy Firebase budget",
+                "TradingAcadamy Firebase budget / betaalplan",
               )}`}
               style={{ textAlign: "center", textDecoration: "none" }}
             >
               E-mail {info.contactEmail}
             </a>
-            {onUnlock && (
-              <button
-                type="button"
-                className="pl-reset-btn"
-                disabled={unlocking}
-                onClick={onUnlock}
-              >
-                {unlocking ? "Ontgrendelen…" : "Admin: ontgrendel app (na betaling)"}
-              </button>
-            )}
+            <p className="pl-sub2">
+              De app werkt weer zodra Samir een betaalplan heeft afgesproken en de
+              blokkade opheft.
+            </p>
           </div>
-        )}
-
-        {!isAdmin && (
-          <p
-            className="pl-sub2"
-            style={{ marginTop: 16 }}
-          >
-            Admins zijn geïnformeerd. De app werkt weer zodra het budget/betaalplan
-            is geregeld.
-          </p>
         )}
       </div>
     </div>

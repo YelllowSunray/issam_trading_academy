@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { withApiError } from "@/lib/api/errors";
-import { requireAdmin, requireAuthUser } from "@/lib/auth/request";
+import { withApiError, ApiError } from "@/lib/api/errors";
+import { requireAuthUser } from "@/lib/auth/request";
+import { isBillingOwner } from "@/lib/billing/owner";
 import {
   billingPublicMessage,
   getBillingState,
@@ -23,7 +24,13 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   return withApiError(async () => {
-    const admin = await requireAdmin(req, { allowWhenBillingExceeded: true });
+    const user = await requireAuthUser(req, { allowWhenBillingExceeded: true });
+    if (!isBillingOwner(user.email)) {
+      throw new ApiError(
+        "Alleen Samir mag de app handmatig blokkeren of ontgrendelen.",
+        403,
+      );
+    }
     const body = (await req.json()) as { exceeded?: boolean; reason?: string };
     if (typeof body.exceeded !== "boolean") {
       return NextResponse.json(
@@ -34,10 +41,10 @@ export async function PATCH(req: Request) {
     const state = await setBillingExceeded({
       exceeded: body.exceeded,
       reason: body.reason ?? (body.exceeded ? "manual_lock" : "manual_unlock"),
-      updatedBy: admin.uid,
+      updatedBy: user.uid,
     });
     await writeAuditLog({
-      actorUid: admin.uid,
+      actorUid: user.uid,
       action: body.exceeded ? "billing_lock" : "billing_unlock",
       meta: { reason: state.reason },
     });

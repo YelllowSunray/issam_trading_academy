@@ -70,15 +70,23 @@ function CoachingInner() {
     () => users.filter((u) => u.role === "student"),
     [users],
   );
-
-  // Keep admins visible too, but students first / activity sorted already from API
-  const rows = useMemo(() => {
-    const me = users.filter((u) => u.uid === profile?.uid);
-    const others = users.filter((u) => u.uid !== profile?.uid);
-    return [...others, ...me];
-  }, [users, profile?.uid]);
+  const admins = useMemo(
+    () => users.filter((u) => u.role === "admin"),
+    [users],
+  );
 
   if (profile && profile.role !== "admin") return null;
+
+  const ownerEmail = (
+    billing?.ownerEmail ||
+    billing?.contactEmail ||
+    "iyersamir@gmail.com"
+  )
+    .trim()
+    .toLowerCase();
+  const canManageBilling =
+    Boolean(profile?.email) &&
+    profile!.email.trim().toLowerCase() === ownerEmail;
 
   const percent = billing?.usage?.percentUsed ?? 0;
   const meterCls =
@@ -91,6 +99,122 @@ function CoachingInner() {
   const recentCount = students.filter(
     (u) => activityFreshness(u.lastJournalActivityAt) === "hot",
   ).length;
+
+  async function toggleDisabled(u: UserProfile) {
+    const isSelf = u.uid === profile?.uid;
+    if (isSelf) return;
+    const label = u.role === "admin" ? "Admin" : "Student";
+    const action = u.disabled ? "activeren" : "deactiveren";
+    const ok = window.confirm(
+      `${label} ${u.email || u.displayName} ${action}?`,
+    );
+    if (!ok) return;
+    setBusyUid(u.uid);
+    try {
+      await setAdminUserDisabled(u.uid, !u.disabled);
+      setUsers((prev) =>
+        prev.map((x) =>
+          x.uid === u.uid ? { ...x, disabled: !u.disabled } : x,
+        ),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Actie mislukt");
+    } finally {
+      setBusyUid(null);
+    }
+  }
+
+  function renderUserRows(
+    list: UserProfile[],
+    opts: { kind: "student" | "admin" },
+  ) {
+    return list.map((u) => {
+      const freshness = activityFreshness(u.lastJournalActivityAt);
+      const isSelf = u.uid === profile?.uid;
+      const isOwner = (u.email || "").trim().toLowerCase() === ownerEmail;
+      return (
+        <tr key={u.uid}>
+          <td>
+            <div style={{ fontWeight: 600 }}>
+              {u.displayName}
+              {isSelf ? " (jij)" : ""}
+              {opts.kind === "admin" && (
+                <span className="status-chip" style={{ marginLeft: 8 }}>
+                  {isOwner ? "owner" : "admin"}
+                </span>
+              )}
+            </div>
+            <div
+              style={{
+                color: "var(--paper-dim)",
+                fontSize: 11,
+                marginTop: 2,
+              }}
+            >
+              {u.email}
+            </div>
+          </td>
+          <td>
+            <span className={`activity-pill ${freshness}`}>
+              {formatRelativeActivity(u.lastJournalActivityAt)}
+            </span>
+            {u.lastJournalActivityAt && (
+              <div
+                style={{
+                  color: "var(--paper-dim)",
+                  fontSize: 10,
+                  marginTop: 4,
+                }}
+              >
+                {new Date(u.lastJournalActivityAt).toLocaleString("nl-NL", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            )}
+          </td>
+          <td>
+            <span className={`status-chip ${u.disabled ? "off" : "on"}`}>
+              {u.disabled ? "Disabled" : "Actief"}
+            </span>
+          </td>
+          <td>
+            <div className="admin-table-actions">
+              <button
+                type="button"
+                className="tb-addbtn"
+                style={{ fontSize: 11.5, padding: "8px 12px" }}
+                onClick={() => {
+                  setCoachTarget({
+                    uid: u.uid,
+                    displayName: u.displayName || "Gebruiker",
+                    email: u.email || "",
+                  });
+                  router.push("/journal");
+                }}
+              >
+                {isSelf
+                  ? "Open journal"
+                  : opts.kind === "admin"
+                    ? "Bekijk journal"
+                    : "Bekijk journal"}
+              </button>
+              <button
+                type="button"
+                className="pl-reset-btn"
+                disabled={busyUid === u.uid || isSelf}
+                onClick={() => void toggleDisabled(u)}
+              >
+                {u.disabled ? "Activeren" : "Deactiveren"}
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    });
+  }
 
   return (
     <div className="journal-main">
@@ -132,8 +256,7 @@ function CoachingInner() {
           )}
         </div>
         <p className="pl-sub2" style={{ marginBottom: 14 }}>
-          Gesorteerd op recente journal-activiteit. Open een journal om read-only
-          mee te kijken.
+          Alleen academy-studenten. Gesorteerd op recente journal-activiteit.
         </p>
         <div className="admin-table-wrap">
           <table className="admin-table">
@@ -145,238 +268,169 @@ function CoachingInner() {
                 <th style={{ textAlign: "right" }}>Acties</th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map((u) => {
-                const freshness = activityFreshness(u.lastJournalActivityAt);
-                const isSelf = u.uid === profile?.uid;
-                return (
-                  <tr key={u.uid}>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>
-                        {u.displayName}
-                        {isSelf ? " (jij)" : ""}
-                        {u.role === "admin" && !isSelf ? (
-                          <span
-                            className="status-chip"
-                            style={{ marginLeft: 8 }}
-                          >
-                            coach
-                          </span>
-                        ) : null}
-                      </div>
-                      <div
-                        style={{
-                          color: "var(--paper-dim)",
-                          fontSize: 11,
-                          marginTop: 2,
-                        }}
-                      >
-                        {u.email}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`activity-pill ${freshness}`}>
-                        {formatRelativeActivity(u.lastJournalActivityAt)}
-                      </span>
-                      {u.lastJournalActivityAt && (
-                        <div
-                          style={{
-                            color: "var(--paper-dim)",
-                            fontSize: 10,
-                            marginTop: 4,
-                          }}
-                        >
-                          {new Date(u.lastJournalActivityAt).toLocaleString(
-                            "nl-NL",
-                            {
-                              day: "numeric",
-                              month: "short",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className={`status-chip ${u.disabled ? "off" : "on"}`}
-                      >
-                        {u.disabled ? "Disabled" : "Actief"}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="admin-table-actions">
-                        <button
-                          type="button"
-                          className="tb-addbtn"
-                          style={{ fontSize: 11.5, padding: "8px 12px" }}
-                          onClick={() => {
-                            setCoachTarget({
-                              uid: u.uid,
-                              displayName: u.displayName || "Student",
-                              email: u.email || "",
-                            });
-                            router.push("/journal");
-                          }}
-                        >
-                          {isSelf ? "Open journal" : "Bekijk journal"}
-                        </button>
-                        <button
-                          type="button"
-                          className="pl-reset-btn"
-                          disabled={busyUid === u.uid || isSelf}
-                          onClick={async () => {
-                            const action = u.disabled
-                              ? "activeren"
-                              : "deactiveren";
-                            const ok = window.confirm(
-                              `Student ${u.email || u.displayName} ${action}?`,
-                            );
-                            if (!ok) return;
-                            setBusyUid(u.uid);
-                            try {
-                              await setAdminUserDisabled(u.uid, !u.disabled);
-                              setUsers((prev) =>
-                                prev.map((x) =>
-                                  x.uid === u.uid
-                                    ? { ...x, disabled: !u.disabled }
-                                    : x,
-                                ),
-                              );
-                            } catch (e) {
-                              setError(
-                                e instanceof Error
-                                  ? e.message
-                                  : "Actie mislukt",
-                              );
-                            } finally {
-                              setBusyUid(null);
-                            }
-                          }}
-                        >
-                          {u.disabled ? "Activeren" : "Deactiveren"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
+            <tbody>{renderUserRows(students, { kind: "student" })}</tbody>
           </table>
-          {!users.length && !error && (
+          {!students.length && !error && (
             <div className="tj-empty">Nog geen studenten.</div>
           )}
         </div>
       </div>
 
       <div className="tj-panel">
-        <button
-          type="button"
+        <div
           className="ttl"
           style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            color: "var(--paper-dim)",
+            marginBottom: 8,
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            gap: 10,
+            flexWrap: "wrap",
           }}
-          onClick={() => setShowSystem((v) => !v)}
         >
-          SYSTEEM / BUDGET {showSystem ? "▴" : "▾"}
-        </button>
-        {showSystem && (
-          <div style={{ marginTop: 14 }}>
-            <div
-              style={{
-                marginBottom: 12,
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              <span className="status-chip">
-                Firebase budget €{billing?.budgetEur ?? 10}
-              </span>
-              <span
-                className={`status-chip ${billing?.exceeded ? "off" : "on"}`}
-              >
-                {billing?.exceeded ? "Geblokkeerd" : "Actief"}
-              </span>
-            </div>
-            <p className="pl-sub2" style={{ marginBottom: 12 }}>
-              Kill-switch bij overschrijding. Alleen voor jou / Samir — niet voor
-              coaching.
-            </p>
-            {billing?.usage && (
-              <>
-                <div className="billing-meter" aria-hidden="true">
-                  <div
-                    className={`billing-meter-fill ${meterCls}`}
-                    style={{ width: `${Math.min(100, percent)}%` }}
-                  />
-                </div>
-                <div className="pl-sub2" style={{ marginBottom: 12 }}>
-                  Meter {billing.usage.period}: €
-                  {billing.usage.estimatedCostEur.toFixed(2)} / €
-                  {billing.budgetEur} ({percent.toFixed(0)}%)
-                </div>
-              </>
-            )}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className="pl-reset-btn"
-                disabled={billingBusy || Boolean(billing?.exceeded)}
-                onClick={async () => {
-                  const ok = window.confirm(
-                    "App blokkeren voor alle gebruikers?",
-                  );
-                  if (!ok) return;
-                  setBillingBusy(true);
-                  try {
-                    const next = await setBillingExceeded(true, "manual_lock");
-                    setBilling(next);
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Lock mislukt");
-                  } finally {
-                    setBillingBusy(false);
-                  }
-                }}
-              >
-                App blokkeren
-              </button>
-              <button
-                type="button"
-                className="pl-reset-btn"
-                disabled={billingBusy || !billing?.exceeded}
-                onClick={async () => {
-                  const ok = window.confirm("App ontgrendelen?");
-                  if (!ok) return;
-                  setBillingBusy(true);
-                  try {
-                    const next = await setBillingExceeded(
-                      false,
-                      "manual_unlock",
-                    );
-                    setBilling(next);
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Unlock mislukt");
-                  } finally {
-                    setBillingBusy(false);
-                  }
-                }}
-              >
-                Ontgrendelen
-              </button>
-            </div>
-          </div>
-        )}
+          ADMINS
+          <span className="status-chip">
+            {admins.length} admin{admins.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <p className="pl-sub2" style={{ marginBottom: 14 }}>
+          Coaches/admins (o.a. via <code>ADMIN_EMAILS</code>). Geen studenten.
+        </p>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Admin</th>
+                <th>Laatste update</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Acties</th>
+              </tr>
+            </thead>
+            <tbody>{renderUserRows(admins, { kind: "admin" })}</tbody>
+          </table>
+          {!admins.length && !error && (
+            <div className="tj-empty">Nog geen admins.</div>
+          )}
+        </div>
       </div>
+
+      {canManageBilling && (
+        <div className="tj-panel">
+          <button
+            type="button"
+            className="ttl"
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              color: "var(--paper-dim)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            onClick={() => setShowSystem((v) => !v)}
+          >
+            SYSTEEM / BUDGET {showSystem ? "▴" : "▾"}
+          </button>
+          {showSystem && (
+            <div style={{ marginTop: 14 }}>
+              <div
+                style={{
+                  marginBottom: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span className="status-chip">
+                  Firebase budget €{billing?.budgetEur ?? 10}
+                </span>
+                <span
+                  className={`status-chip ${billing?.exceeded ? "off" : "on"}`}
+                >
+                  {billing?.exceeded ? "Geblokkeerd" : "Actief"}
+                </span>
+              </div>
+              <p className="pl-sub2" style={{ marginBottom: 12 }}>
+                Alleen jij ({ownerEmail}) ziet deze knoppen. Bij overschrijding
+                van €{billing?.budgetEur ?? 10} blokkeert de app automatisch;
+                Issam ziet dan contactgegevens om een betaalplan met jou te
+                regelen.
+              </p>
+              {billing?.usage && (
+                <>
+                  <div className="billing-meter" aria-hidden="true">
+                    <div
+                      className={`billing-meter-fill ${meterCls}`}
+                      style={{ width: `${Math.min(100, percent)}%` }}
+                    />
+                  </div>
+                  <div className="pl-sub2" style={{ marginBottom: 12 }}>
+                    Meter {billing.usage.period}: €
+                    {billing.usage.estimatedCostEur.toFixed(2)} / €
+                    {billing.budgetEur} ({percent.toFixed(0)}%)
+                  </div>
+                </>
+              )}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="pl-reset-btn"
+                  disabled={billingBusy || Boolean(billing?.exceeded)}
+                  onClick={async () => {
+                    const ok = window.confirm(
+                      "App blokkeren voor alle gebruikers (inclusief Issam)?",
+                    );
+                    if (!ok) return;
+                    setBillingBusy(true);
+                    try {
+                      const next = await setBillingExceeded(
+                        true,
+                        "manual_lock",
+                      );
+                      setBilling(next);
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : "Lock mislukt",
+                      );
+                    } finally {
+                      setBillingBusy(false);
+                    }
+                  }}
+                >
+                  App blokkeren
+                </button>
+                <button
+                  type="button"
+                  className="pl-reset-btn"
+                  disabled={billingBusy || !billing?.exceeded}
+                  onClick={async () => {
+                    const ok = window.confirm("App ontgrendelen?");
+                    if (!ok) return;
+                    setBillingBusy(true);
+                    try {
+                      const next = await setBillingExceeded(
+                        false,
+                        "manual_unlock",
+                      );
+                      setBilling(next);
+                    } catch (e) {
+                      setError(
+                        e instanceof Error ? e.message : "Unlock mislukt",
+                      );
+                    } finally {
+                      setBillingBusy(false);
+                    }
+                  }}
+                >
+                  Ontgrendelen
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

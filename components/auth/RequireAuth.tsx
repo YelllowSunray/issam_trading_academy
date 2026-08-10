@@ -59,13 +59,20 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (billing?.exceeded) {
+    const ownerEmail = (billing.ownerEmail || billing.contactEmail || "")
+      .trim()
+      .toLowerCase();
+    const canManageBilling =
+      Boolean(profile?.email) &&
+      profile!.email.trim().toLowerCase() === ownerEmail;
+
     return (
       <BillingLock
         info={billing}
-        isAdmin={profile?.role === "admin"}
+        canManageBilling={canManageBilling}
         unlocking={unlocking}
         onUnlock={
-          profile?.role === "admin"
+          canManageBilling
             ? async () => {
                 setUnlocking(true);
                 try {

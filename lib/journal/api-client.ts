@@ -198,6 +198,8 @@ export type BillingLockInfo = {
   title: string;
   studentMessage: string;
   adminMessage: string;
+  ownerMessage?: string;
+  ownerEmail?: string;
   contactName: string;
   contactEmail: string;
   whatsappE164: string | null;
