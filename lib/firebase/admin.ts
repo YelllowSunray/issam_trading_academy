@@ -1,11 +1,15 @@
-import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import {
+  cert,
+  getApps,
+  initializeApp,
+  type App,
+} from "firebase-admin/app";
+import { getAuth, type Auth } from "firebase-admin/auth";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
 function normalizePrivateKey(raw: string): string {
   let key = raw.trim();
-  // Vercel/UI sometimes stores the value wrapped in quotes
   if (
     (key.startsWith('"') && key.endsWith('"')) ||
     (key.startsWith("'") && key.endsWith("'"))
@@ -71,7 +75,7 @@ function getAdminApp(): App {
   });
 }
 
-export function adminDb() {
+export function adminDb(): Firestore {
   return getFirestore(getAdminApp());
 }
 
@@ -79,7 +83,7 @@ export function adminBucket() {
   return getStorage(getAdminApp()).bucket();
 }
 
-export function adminAuth() {
+export function adminAuth(): Auth {
   return getAuth(getAdminApp());
 }
 

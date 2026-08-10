@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAdminConfigStatus, adminAuth } from "@/lib/firebase/admin";
+import { getAdminConfigStatus } from "@/lib/firebase/admin";
 
 export const runtime = "nodejs";
 
@@ -9,25 +9,24 @@ export async function GET() {
   let adminOk = false;
   let adminError: string | null = null;
 
-  if (config.configured) {
-    try {
-      // Touches credential init without needing a user token
-      adminAuth();
-      adminOk = true;
-    } catch (err) {
-      adminError = err instanceof Error ? err.message : "admin init failed";
-    }
-  } else {
-    adminError = "missing Firebase Admin env vars";
+  if (!config.configured) {
+    return NextResponse.json(
+      { ok: false, config, adminError: "missing Firebase Admin env vars" },
+      { status: 500 },
+    );
   }
 
-  const status = adminOk ? 200 : 500;
+  try {
+    const { adminAuth } = await import("@/lib/firebase/admin");
+    adminAuth();
+    adminOk = true;
+  } catch (err) {
+    adminError = err instanceof Error ? err.message : "admin init failed";
+    console.error("[health] admin init failed", err);
+  }
+
   return NextResponse.json(
-    {
-      ok: adminOk,
-      config,
-      adminError,
-    },
-    { status },
+    { ok: adminOk, config, adminError },
+    { status: adminOk ? 200 : 500 },
   );
 }

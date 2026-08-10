@@ -28,5 +28,8 @@
     "firebase-tools": "^15.26.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "jose": "4.15.9"
   }
 }

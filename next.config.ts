@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Keep firebase-admin out of the Turbopack/webpack server bundle on Vercel
-  serverExternalPackages: ["firebase-admin"],
+  /* firebase-admin is imported lazily in lib/firebase/admin.ts */
 };
 
 export default nextConfig;
