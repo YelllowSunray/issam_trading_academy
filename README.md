@@ -25,6 +25,7 @@ npx firebase deploy --only firestore:rules,storage --project issam-trading-aca
 
 4. Put Admin credentials + web config in `.env.local` (see `.env.example`)
 5. Set `ADMIN_EMAILS` to Issam’s login email(s)
+6. For production Google login: Firebase Console → **Authentication** → **Settings** → **Authorized domains** → add `issam-trading-academy.vercel.app` (and any custom domain). `localhost` is already allowed by default.
 
 ### 2. App
 
@@ -59,8 +60,14 @@ TARGET_UID=<issam-uid> npm run migrate:user
 ## Deploy (Vercel)
 
 1. Push the repo and import into Vercel
-2. Add the same env vars as `.env.local` (including `FIREBASE_PRIVATE_KEY` with `\n` escapes)
-3. Deploy
+2. Add the same env vars as `.env.local`:
+   - All `NEXT_PUBLIC_FIREBASE_*`
+   - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET`
+   - `ADMIN_EMAILS`, billing vars
+3. **`FIREBASE_PRIVATE_KEY` tip:** paste the key with literal `\n` newlines. In the Vercel UI, do **not** wrap the whole value in extra `"..."` quotes (that commonly causes API `500`s).
+4. In Firebase → Authentication → Authorized domains, add `issam-trading-academy.vercel.app`
+5. Deploy (redeploy after changing env vars)
+6. Check `https://your-app.vercel.app/api/health` — should return `{ "ok": true }`
 4. Update EA URLs + WebRequest allowlist to the production origin
 5. Add the production domain to Firebase Auth authorized domains
 

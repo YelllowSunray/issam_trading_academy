@@ -1,4 +1,5 @@
 import { adminAuth } from "@/lib/firebase/admin";
+import { ApiError } from "@/lib/api/errors";
 import type { AuthUser } from "@/lib/auth/types";
 import { assertBillingActive } from "@/lib/billing/store";
 import {
@@ -16,20 +17,16 @@ async function authenticate(req: Request): Promise<AuthUser> {
   const header = req.headers.get("authorization") || "";
   const match = /^Bearer\s+(.+)$/i.exec(header);
   if (!match) {
-    throw new Response(JSON.stringify({ ok: false, error: "unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    throw new ApiError("unauthorized", 401);
   }
 
   let decoded;
   try {
     decoded = await adminAuth().verifyIdToken(match[1]);
-  } catch {
-    throw new Response(JSON.stringify({ ok: false, error: "invalid token" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "invalid token";
+    console.error("[auth] verifyIdToken failed:", msg);
+    throw new ApiError("invalid token", 401);
   }
 
   const profile = await ensureUserProfile({
@@ -39,10 +36,7 @@ async function authenticate(req: Request): Promise<AuthUser> {
   });
 
   if (profile.disabled) {
-    throw new Response(JSON.stringify({ ok: false, error: "account disabled" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
+    throw new ApiError("account disabled", 403);
   }
 
   return toAuthUser(profile);
@@ -64,10 +58,7 @@ export async function requireAdmin(
 ): Promise<AuthUser> {
   const user = await requireAuthUser(req, options);
   if (user.role !== "admin") {
-    throw new Response(JSON.stringify({ ok: false, error: "forbidden" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
+    throw new ApiError("forbidden", 403);
   }
   return user;
 }
@@ -80,17 +71,11 @@ export async function resolveTargetUid(
   const asUser = searchParams.get("asUser");
   if (!asUser || asUser === self.uid) return self.uid;
   if (self.role !== "admin") {
-    throw new Response(JSON.stringify({ ok: false, error: "forbidden" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
+    throw new ApiError("forbidden", 403);
   }
   const profile = await getUserProfile(asUser);
   if (!profile) {
-    throw new Response(JSON.stringify({ ok: false, error: "user not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    throw new ApiError("user not found", 404);
   }
   return asUser;
 }

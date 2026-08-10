@@ -38,8 +38,20 @@ function mapAuthError(err: unknown): string {
   if (code.includes("auth/popup-closed-by-user")) {
     return "Google-login geannuleerd.";
   }
+  if (code.includes("auth/unauthorized-domain")) {
+    return "Dit domein is niet toegestaan voor Google-login. Voeg issam-trading-academy.vercel.app toe onder Firebase → Authentication → Settings → Authorized domains.";
+  }
+  if (
+    code.includes("auth/operation-not-allowed") ||
+    code.includes("auth/admin-restricted-operation")
+  ) {
+    return "Google-login is niet ingeschakeld in Firebase Authentication.";
+  }
   if (code.includes("auth/network-request-failed")) {
     return "Geen verbinding. Controleer je internet.";
+  }
+  if (code.includes("auth/internal-error")) {
+    return "Firebase Auth-fout. Controleer of Google provider aan staat en of Vercel de NEXT_PUBLIC_FIREBASE_* env vars heeft.";
   }
   if (message && !message.startsWith("Firebase:")) return message;
   return "Er ging iets mis. Probeer het opnieuw.";

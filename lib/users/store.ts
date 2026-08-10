@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/errors";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminDb } from "@/lib/firebase/admin";
 import { hashIngestSecret, secretsEqual } from "@/lib/auth/secrets";
@@ -87,10 +88,7 @@ export async function updateUserProfile(
 ): Promise<UserProfile> {
   const existing = await getUserProfile(uid);
   if (!existing) {
-    throw new Response(JSON.stringify({ ok: false, error: "user not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    throw new ApiError("user not found", 404);
   }
 
   const displayName =
@@ -99,13 +97,7 @@ export async function updateUserProfile(
       : existing.displayName;
 
   if (!displayName || displayName.length < 2) {
-    throw new Response(
-      JSON.stringify({ ok: false, error: "Naam moet minstens 2 tekens zijn" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    throw new ApiError("Naam moet minstens 2 tekens zijn", 400);
   }
 
   const next: UserProfile = {
