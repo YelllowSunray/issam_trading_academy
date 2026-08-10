@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:mt5": "node --env-file=.env.local scripts/seed-mt5-store.mjs"
+    "seed:mt5": "node --env-file=.env.local scripts/seed-mt5-store.mjs",
+    "migrate:user": "node --env-file=.env.local scripts/migrate-legacy-to-user.mjs"
   },
   "dependencies": {
+    "firebase": "^12.17.1",
     "firebase-admin": "^14.2.0",
     "next": "16.3.0",
     "react": "19.2.8",
@@ -22,6 +24,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "firebase-tools": "^15.26.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

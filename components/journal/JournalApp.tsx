@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import {
   createManualTrade,
   deleteManualTrade,
@@ -32,6 +33,9 @@ import { TradeModal } from "./TradeModal";
 type Page = "journal" | "dashboard";
 
 export function JournalApp() {
+  const { profile, asUser, setAsUser } = useAuth();
+  const readOnly = Boolean(asUser && asUser !== profile?.uid);
+
   const [page, setPage] = useState<Page>("journal");
   const [manualTrades, setManualTrades] = useState<ManualTrade[]>([]);
   const [mt5Trades, setMt5Trades] = useState<Mt5Trade[]>([]);
@@ -51,6 +55,7 @@ export function JournalApp() {
   const [annotateId, setAnnotateId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
@@ -111,6 +116,8 @@ export function JournalApp() {
     let cancelled = false;
     (async () => {
       try {
+        setBooting(true);
+        setBootError(null);
         const settings = await fetchSettings();
         if (cancelled) return;
         setSelectedLogin(settings.selectedLogin);
@@ -124,19 +131,21 @@ export function JournalApp() {
               : "Kon journal data niet laden. Check Firebase Admin credentials.",
           );
         }
+      } finally {
+        if (!cancelled) setBooting(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [pollMt5, refreshJournal]);
+  }, [pollMt5, refreshJournal, asUser]);
 
   useEffect(() => {
     const id = setInterval(() => {
       void pollMt5(selectedLogin);
     }, 15000);
     return () => clearInterval(id);
-  }, [pollMt5, selectedLogin]);
+  }, [pollMt5, selectedLogin, asUser]);
 
   const enriched = useMemo(
     () => enrichTrades(mergeTrades(manualTrades, mt5Trades, annotations)),
@@ -156,11 +165,15 @@ export function JournalApp() {
         selectedLogin={selectedLogin}
         onSelectLogin={async (login) => {
           setSelectedLogin(login);
-          await saveSettings({ selectedLogin: login });
+          if (!readOnly) await saveSettings({ selectedLogin: login });
           await pollMt5(login);
         }}
         status={status}
         onAddTrade={() => setShowTradeModal(true)}
+        isAdmin={profile?.role === "admin"}
+        viewingAsLabel={readOnly ? asUser : null}
+        onClearAsUser={() => setAsUser(null)}
+        readOnly={readOnly}
       />
 
       <main className="journal-main">
@@ -169,14 +182,26 @@ export function JournalApp() {
             {bootError}
           </div>
         )}
-        {page === "journal" ? (
+        {readOnly && (
+          <div className="pl-empty" style={{ marginBottom: 16 }}>
+            Read-only coach view — je bekijkt de journal van een student.
+          </div>
+        )}
+        {booting && !bootError ? (
+          <div className="journal-loading">Journal laden…</div>
+        ) : page === "journal" ? (
           <JournalView
             trades={enriched}
+            readOnly={readOnly}
             onDelete={async (id) => {
+              if (readOnly) return;
               await deleteManualTrade(id);
               await refreshJournal();
             }}
-            onAnnotate={setAnnotateId}
+            onAnnotate={(id) => {
+              if (readOnly) return;
+              setAnnotateId(id);
+            }}
             onLightbox={setLightbox}
           />
         ) : (
@@ -184,7 +209,7 @@ export function JournalApp() {
         )}
       </main>
 
-      {showTradeModal && (
+      {showTradeModal && !readOnly && (
         <TradeModal
           onClose={() => setShowTradeModal(false)}
           onSave={async (trade) => {
@@ -211,7 +236,7 @@ export function JournalApp() {
         />
       )}
 
-      {annotateTrade && (
+      {annotateTrade && !readOnly && (
         <AnnotateModal
           trade={annotateTrade}
           initial={

@@ -1,78 +1,100 @@
 # TradingAcadamy — Journal & P&L
 
-Next.js rebuild of the Trading Journal Dashboard: MT5 sync, manual journal entries, annotations, and a live P&L dashboard. All data lives in Firebase (Firestore + Storage).
+Multi-tenant trading journal for the academy: students each have their own journal; Issam is both a trader and admin. Data lives in Firebase (Auth + Firestore + Storage). MT5 syncs via Next.js API routes with a per-user ingest secret.
 
-## Stack
+## Features
 
-- Next.js (App Router) + React
-- Firebase Admin → Firestore + Storage
-- MetaTrader 5 Expert Advisor (`mt5/JournalSyncEA.mq5`)
+- Firebase Auth (email/password + Google)
+- Per-user Journal + P&L dashboard
+- Manual trades, SMC tags, notes, screenshots
+- MT5 sync (multi-account) with per-user secrets
+- CSV export of filtered P&L rows
+- Admin: list users, disable accounts, read-only coach view of a student journal
 
 ## Setup
 
-### 1. Firebase Admin credentials
+### 1. Firebase
 
-1. Open [Firebase Console](https://console.firebase.google.com/) → project `issam-trading-aca`
-2. Project settings → Service accounts → **Generate new private key**
-3. Copy `.env.example` to `.env.local` (already started) and set either:
-
-```bash
-FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
-```
-
-or:
+1. Enable **Authentication** (Email/Password + Google) in Firebase Console
+2. Enable **Firestore** and **Storage**
+3. Deploy security rules (deny client access — Admin SDK only):
 
 ```bash
-FIREBASE_PROJECT_ID=issam-trading-aca
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-...@issam-trading-aca.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-FIREBASE_STORAGE_BUCKET=issam-trading-aca.firebasestorage.app
+npx firebase deploy --only firestore:rules,storage --project issam-trading-aca
 ```
 
-Enable **Firestore** and **Storage** in the Firebase console if not already on.
+4. Put Admin credentials + web config in `.env.local` (see `.env.example`)
+5. Set `ADMIN_EMAILS` to Issam’s login email(s)
 
-### 2. Install & run
+### 2. App
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) for the academy homepage.
+Journal lives at [/journal](http://localhost:3000/journal) (login required).
 
-### 3. Optional: seed old MT5 JSON into Firestore
+### 3. MT5
+
+1. In **Instellingen**, generate an ingest secret
+2. Copy [`mt5/JournalSyncEA.mq5`](mt5/JournalSyncEA.mq5) into `MQL5/Experts/`, compile
+3. Set EA inputs:
+   - `TradeURL` = `http://127.0.0.1:3000/api/mt5-trade` (or your Vercel URL)
+   - `HeartbeatURL` = `.../api/heartbeat`
+   - `IngestSecret` = the secret from Settings
+4. Allow WebRequest for that origin in MT5 options
+
+### 4. Optional data import
+
+After Issam has logged in once (so his `uid` exists):
 
 ```bash
-npm run seed:mt5
+TARGET_UID=<issam-uid> npm run seed:mt5
+# or migrate old root-level Firestore docs:
+TARGET_UID=<issam-uid> npm run migrate:user
 ```
 
-### 4. MetaTrader 5
+## Deploy (Vercel)
 
-1. Copy [`mt5/JournalSyncEA.mq5`](mt5/JournalSyncEA.mq5) into `MQL5/Experts/`
-2. Compile in MetaEditor (F7)
-3. Allow WebRequest for `http://127.0.0.1:3000`
-4. Attach the EA to a chart with AutoTrading on
-5. Keep `npm run dev` (or `npm start`) running so the API receives trades/heartbeats
+1. Push the repo and import into Vercel
+2. Add the same env vars as `.env.local` (including `FIREBASE_PRIVATE_KEY` with `\n` escapes)
+3. Deploy
+4. Update EA URLs + WebRequest allowlist to the production origin
+5. Add the production domain to Firebase Auth authorized domains
 
-If you set `MT5_INGEST_SECRET` in `.env.local`, set the same value on the EA input `IngestSecret`.
+## Security model
 
-## API
+- UI uses Firebase Auth ID tokens (`Authorization: Bearer …`)
+- Journal APIs are scoped to `users/{uid}/…`
+- Admins may pass `?asUser=` for read-only coaching
+- MT5 POSTs require `x-mt5-secret` mapped to a user
+- Firestore/Storage rules deny all client access
 
-| Route | Role |
+## Firebase budget kill-switch (€10)
+
+The app **self-meters** Firestore/Storage ops it performs (reads/writes/deletes/uploads), estimates cost with a safety buffer, and auto-locks when the estimate reaches `BILLING_BUDGET_EUR` (default €10). No Google Cloud budget alert is required for this to work.
+
+Counters live in `system_usage/{yyyy-mm}` and reset each UTC month.
+
+When locked:
+- All journal/MT5 APIs return `503 billing_exceeded`
+- Students see a blocked screen
+- Admins see WhatsApp-Samir instructions + estimated usage + unlock after payment
+
+**Caveat:** the meter is an **estimate of our Admin SDK traffic**, not the exact Google invoice (console usage, free-tier quirks, other GCP services won’t match 1:1). It’s intentionally a bit conservative.
+
+Optional extras:
+- GCP Budget alert → `POST /api/billing/budget-alert`
+- Manual lock/unlock on **Admin**
+- `BILLING_HARD_STOP=true`
+
+## Scripts
+
+| Command | Purpose |
 |---|---|
-| `POST /api/mt5-trade` | EA trade upsert |
-| `POST /api/heartbeat` | EA account heartbeat |
-| `GET /api/accounts` | Account list |
-| `GET /api/trades?login=` | MT5 trades |
-| `GET /api/status?login=` | Connection status |
-| `GET/POST /api/manual-trades` | Manual journal trades |
-| `DELETE /api/manual-trades/[id]` | Delete manual trade |
-| `GET/PUT /api/annotations/[tradeId]` | MT5 annotations |
-| `GET/PUT /api/settings` | UI prefs (selected account) |
-| `POST /api/uploads` | Screenshot → Storage |
-
-## Notes
-
-- The old Python bridge (`Trading-Journal-Dashboard--main/Mt5ServerBridgeMac.py`) is no longer required.
-- Nothing is stored in `localStorage`; everything goes through Firebase via the Next.js API.
-# issam_trading_academy
+| `npm run dev` | Local Next.js |
+| `npm run build` | Production build |
+| `npm run seed:mt5` | Import JSON store into a user |
+| `npm run migrate:user` | Move legacy root collections into a user |

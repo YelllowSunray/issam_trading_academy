@@ -9,6 +9,7 @@ import {
   plDayOfWeekBreakdown,
   plSessionBreakdown,
 } from "@/lib/journal/compute";
+import { downloadCsv, tradesToCsv } from "@/lib/journal/csv";
 import { fmtEur, fmtEurAbs, plMonthKey, plMonthLabel } from "@/lib/journal/format";
 import type { UnifiedTrade } from "@/lib/journal/types";
 
@@ -122,6 +123,19 @@ export function PnLDashboard({ trades }: { trades: UnifiedTrade[] }) {
           }
         >
           Reset filters
+        </button>
+        <button
+          type="button"
+          className="pl-reset-btn pl-export-btn"
+          onClick={() => {
+            const csv = tradesToCsv(withEur.length ? withEur : allEur);
+            downloadCsv(
+              `trading-journal-${new Date().toISOString().slice(0, 10)}.csv`,
+              csv,
+            );
+          }}
+        >
+          Export CSV
         </button>
       </div>
 

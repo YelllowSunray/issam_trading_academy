@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { UserMenu } from "@/components/ui/UserMenu";
 import { TJ_SESSIONS } from "@/lib/journal/constants";
 import { tjIsSessionActive } from "@/lib/journal/compute";
 import { fmtEurAbs } from "@/lib/journal/format";
@@ -15,6 +17,10 @@ export function Topbar({
   onSelectLogin,
   status,
   onAddTrade,
+  isAdmin,
+  viewingAsLabel,
+  onClearAsUser,
+  readOnly,
 }: {
   page: "journal" | "dashboard";
   onPageChange: (page: "journal" | "dashboard") => void;
@@ -23,6 +29,10 @@ export function Topbar({
   onSelectLogin: (login: string) => void;
   status: Mt5Status;
   onAddTrade: () => void;
+  isAdmin?: boolean;
+  viewingAsLabel?: string | null;
+  onClearAsUser?: () => void;
+  readOnly?: boolean;
 }) {
   const [clock, setClock] = useState("--:--:--");
   const [utcHour, setUtcHour] = useState(0);
@@ -45,12 +55,14 @@ export function Topbar({
     return () => clearInterval(id);
   }, []);
 
+  const activeSessions = TJ_SESSIONS.filter((s) => tjIsSessionActive(s, utcHour));
+
   return (
     <header className="topbar">
       <div className="tb-left">
-        <div className="tb-brand">
+        <Link href="/" className="tb-brand" style={{ textDecoration: "none", color: "inherit" }}>
           Trading<span>Acadamy</span>
-        </div>
+        </Link>
         <div className="tb-tabs">
           <button
             type="button"
@@ -69,6 +81,14 @@ export function Topbar({
         </div>
       </div>
       <div className="tb-right">
+        {viewingAsLabel && (
+          <div className="mt5-status" style={{ gap: 8 }}>
+            Bekijkt: {viewingAsLabel}
+            <button type="button" className="pl-reset-btn" onClick={onClearAsUser}>
+              Stop
+            </button>
+          </div>
+        )}
         {accounts.length > 0 && (
           <select
             className="mt5-account-select"
@@ -96,10 +116,9 @@ export function Topbar({
           <div className="lbl">AMSTERDAM</div>
           <div className="val">{clock}</div>
         </div>
-        <div className="tb-sessions">
-          {TJ_SESSIONS.map((s) => {
-            const active = tjIsSessionActive(s, utcHour);
-            return (
+        <div className="tb-sessions" title="Actieve sessies">
+          {activeSessions.length ? (
+            activeSessions.map((s) => (
               <div
                 key={s.name}
                 title={s.name}
@@ -110,8 +129,8 @@ export function Topbar({
                   gap: 3,
                   padding: "5px 7px",
                   borderRadius: 6,
-                  border: `1px solid ${active ? s.color : "var(--line)"}`,
-                  background: active ? "var(--ink-2)" : undefined,
+                  border: `1px solid ${s.color}`,
+                  background: "var(--ink-2)",
                 }}
               >
                 <div
@@ -119,25 +138,33 @@ export function Topbar({
                     width: 6,
                     height: 6,
                     borderRadius: "50%",
-                    background: active ? s.color : "#565a63",
-                    boxShadow: active ? `0 0 6px ${s.color}` : undefined,
+                    background: s.color,
+                    boxShadow: `0 0 6px ${s.color}`,
                   }}
                 />
-                <div
-                  style={{
-                    fontSize: 8.5,
-                    color: active ? "var(--paper)" : "#565a63",
-                  }}
-                >
-                  {s.name}
-                </div>
+                <div style={{ fontSize: 8.5, color: "var(--paper)" }}>{s.name}</div>
               </div>
-            );
-          })}
+            ))
+          ) : (
+            <div
+              style={{
+                fontSize: 10,
+                color: "#565a63",
+                padding: "5px 7px",
+                border: "1px solid var(--line)",
+                borderRadius: 6,
+              }}
+            >
+              Geen sessie
+            </div>
+          )}
         </div>
-        <button className="tb-addbtn" type="button" onClick={onAddTrade}>
-          <IconPlus /> Trade toevoegen
-        </button>
+        {!readOnly && (
+          <button className="tb-addbtn" type="button" onClick={onAddTrade}>
+            <IconPlus /> Trade toevoegen
+          </button>
+        )}
+        <UserMenu isAdmin={isAdmin} />
       </div>
     </header>
   );

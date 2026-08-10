@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono } from "next/font/google";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -15,9 +16,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TradingAcadamy — Journal & P&L",
+  title: "TradingAcadamy — Trading Academy Journal",
   description:
-    "Persoonlijk trading journal en P&L dashboard, gekoppeld aan MetaTrader 5.",
+    "Issam's trading academy: trade journal, live P&L dashboard en MT5-sync voor serieuze traders.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="nl"
       className={`${fraunces.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

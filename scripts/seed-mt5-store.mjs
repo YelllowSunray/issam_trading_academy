@@ -1,9 +1,9 @@
 /**
- * One-time import of Trading-Journal-Dashboard--main/mt5_trades_store.json
- * into Firestore via the Admin SDK.
+ * Import Trading-Journal-Dashboard--main/mt5_trades_store.json into
+ * users/{TARGET_UID}/mt5_accounts via the Admin SDK.
  *
  * Usage:
- *   node --env-file=.env.local scripts/seed-mt5-store.mjs
+ *   TARGET_UID=xxxx node --env-file=.env.local scripts/seed-mt5-store.mjs
  */
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
@@ -18,6 +18,12 @@ const storePath = join(
   "Trading-Journal-Dashboard--main",
   "mt5_trades_store.json",
 );
+
+const uid = process.env.TARGET_UID;
+if (!uid) {
+  console.error("Set TARGET_UID to the Firebase Auth uid that should own the data");
+  process.exit(1);
+}
 
 function loadCredential() {
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
@@ -51,12 +57,13 @@ if (!getApps().length) {
 }
 
 const db = getFirestore();
+const accounts = db.collection("users").doc(uid).collection("mt5_accounts");
 const raw = JSON.parse(readFileSync(storePath, "utf8"));
 
 async function seed() {
   if (Array.isArray(raw)) {
     const login = "onbekend";
-    await db.collection("mt5_accounts").doc(login).set({
+    await accounts.doc(login).set({
       info: null,
       last_heartbeat: null,
       last_trade_sync: null,
@@ -65,40 +72,31 @@ async function seed() {
       const batch = db.batch();
       raw.slice(i, i + 400).forEach((t) => {
         if (!t?.id) return;
-        batch.set(
-          db.collection("mt5_accounts").doc(login).collection("trades").doc(t.id),
-          t,
-        );
+        batch.set(accounts.doc(login).collection("trades").doc(t.id), t);
       });
       await batch.commit();
     }
-    console.log(`Seeded legacy list into account ${login}`);
+    console.log(`Seeded legacy list into users/${uid}/mt5_accounts/${login}`);
     return;
   }
 
   for (const [login, acc] of Object.entries(raw)) {
-    await db
-      .collection("mt5_accounts")
-      .doc(login)
-      .set({
-        info: acc.info ?? null,
-        last_heartbeat: acc.last_heartbeat ?? null,
-        last_trade_sync: acc.last_trade_sync ?? null,
-      });
+    await accounts.doc(login).set({
+      info: acc.info ?? null,
+      last_heartbeat: acc.last_heartbeat ?? null,
+      last_trade_sync: acc.last_trade_sync ?? null,
+    });
     const trades = acc.trades || {};
     const ids = Object.keys(trades);
     for (let i = 0; i < ids.length; i += 400) {
       const chunk = ids.slice(i, i + 400);
       const batch = db.batch();
       chunk.forEach((id) => {
-        batch.set(
-          db.collection("mt5_accounts").doc(login).collection("trades").doc(id),
-          trades[id],
-        );
+        batch.set(accounts.doc(login).collection("trades").doc(id), trades[id]);
       });
       await batch.commit();
     }
-    console.log(`Seeded account ${login} (${ids.length} trades)`);
+    console.log(`Seeded account ${login} (${ids.length} trades) for ${uid}`);
   }
 }
 

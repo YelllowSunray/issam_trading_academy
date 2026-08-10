@@ -9,7 +9,7 @@
 //|      WebRequest toestaan voor: http://127.0.0.1:3000               |
 //|   4. Sleep EA op een chart, AutoTrading aan                         |
 //|   5. Start de Next.js app: npm run dev                              |
-//|   6. Optioneel: zet IngestSecret gelijk aan MT5_INGEST_SECRET       |
+//|   6. Verplicht: IngestSecret = secret uit app Instellingen           |
 //+------------------------------------------------------------------+
 #property copyright "TradingAcadamy"
 #property strict

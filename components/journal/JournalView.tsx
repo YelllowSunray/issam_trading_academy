@@ -18,11 +18,13 @@ export function JournalView({
   onDelete,
   onAnnotate,
   onLightbox,
+  readOnly = false,
 }: {
   trades: UnifiedTrade[];
   onDelete: (id: string) => void;
   onAnnotate: (id: string) => void;
   onLightbox: (src: string) => void;
+  readOnly?: boolean;
 }) {
   const [filter, setFilter] = useState("Alle");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -210,31 +212,32 @@ export function JournalView({
                         <div className="r">{rtxt}</div>
                         {etxt ? <div className="e">{etxt}</div> : null}
                       </div>
-                      {t.source === "mt5" ? (
-                        <button
-                          className="del"
-                          type="button"
-                          title="Tags/notitie toevoegen"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAnnotate(t.id);
-                          }}
-                        >
-                          <IconEdit />
-                        </button>
-                      ) : (
-                        <button
-                          className="del"
-                          type="button"
-                          title="Verwijderen"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(t.id);
-                          }}
-                        >
-                          <IconTrash />
-                        </button>
-                      )}
+                      {!readOnly &&
+                        (t.source === "mt5" ? (
+                          <button
+                            className="del"
+                            type="button"
+                            title="Tags/notitie toevoegen"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAnnotate(t.id);
+                            }}
+                          >
+                            <IconEdit />
+                          </button>
+                        ) : (
+                          <button
+                            className="del"
+                            type="button"
+                            title="Verwijderen"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(t.id);
+                            }}
+                          >
+                            <IconTrash />
+                          </button>
+                        ))}
                     </div>
                     {expanded[t.id] && <TradeDetail trade={t} />}
                   </div>

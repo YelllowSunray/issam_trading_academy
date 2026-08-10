@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Screenshots are uploaded/served via Next.js Admin SDK (signed URLs).
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
