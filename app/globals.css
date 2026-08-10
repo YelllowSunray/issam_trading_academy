@@ -140,6 +140,84 @@ button:focus-visible {
 .tb-label-short {
   display: none;
 }
+.tb-coach-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: rgba(191, 155, 48, 0.12);
+  border: 1px solid rgba(191, 155, 48, 0.45);
+  border-radius: 8px;
+  padding: 6px 10px;
+  max-width: 100%;
+}
+.tb-coach-chip-label {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-soft);
+}
+.tb-coach-chip-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--paper);
+}
+.coach-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(191, 155, 48, 0.45);
+  background:
+    linear-gradient(90deg, rgba(191, 155, 48, 0.14), rgba(191, 155, 48, 0.04));
+}
+.coach-banner-kicker {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold-soft);
+  margin-bottom: 4px;
+}
+.coach-banner-name {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--paper);
+}
+.coach-banner-email {
+  font-size: 12px;
+  color: var(--paper-dim);
+  margin-top: 2px;
+}
+.coach-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.activity-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--ink-3);
+  color: var(--paper-dim);
+}
+.activity-pill.hot {
+  color: var(--bull);
+  border-color: rgba(76, 139, 103, 0.45);
+  background: rgba(76, 139, 103, 0.12);
+}
+.activity-pill.warm {
+  color: var(--gold-soft);
+  border-color: rgba(191, 155, 48, 0.4);
+  background: rgba(191, 155, 48, 0.1);
+}
 .tb-clock {
   text-align: right;
 }
@@ -1612,9 +1690,13 @@ button:focus-visible {
     padding: 9px 12px;
   }
 
-  .tb-coach {
+  .tb-coach-chip {
     width: 100%;
     order: -1;
+  }
+
+  .coach-banner-name {
+    font-size: 18px;
   }
 
   .journal-main {

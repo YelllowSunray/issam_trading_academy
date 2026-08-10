@@ -8,6 +8,7 @@ export function UserMenu({ isAdmin }: { isAdmin?: boolean }) {
   const { profile, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const admin = Boolean(isAdmin || profile?.role === "admin");
 
   useEffect(() => {
     if (!open) return;
@@ -42,11 +43,11 @@ export function UserMenu({ isAdmin }: { isAdmin?: boolean }) {
             <div className="user-menu-email">{profile?.email}</div>
           </div>
           <Link href="/settings" className="user-menu-item" onClick={() => setOpen(false)}>
-            Instellingen
+            Profiel &amp; instellingen
           </Link>
-          {isAdmin && (
+          {admin && (
             <Link href="/admin" className="user-menu-item" onClick={() => setOpen(false)}>
-              Admin
+              Coaching · studenten
             </Link>
           )}
           <Link href="/" className="user-menu-item" onClick={() => setOpen(false)}>

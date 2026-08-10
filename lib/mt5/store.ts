@@ -2,7 +2,7 @@ import { trackUsage } from "@/lib/billing/meter";
 import { HEARTBEAT_TIMEOUT_SECONDS, LEGACY_BUCKET } from "@/lib/journal/constants";
 import type { Mt5AccountSummary, Mt5Status, Mt5Trade } from "@/lib/journal/types";
 import { adminDb } from "@/lib/firebase/admin";
-import { userRef } from "@/lib/users/store";
+import { touchJournalActivity, userRef } from "@/lib/users/store";
 
 async function meter(delta: Parameters<typeof trackUsage>[0]) {
   try {
@@ -97,13 +97,15 @@ export async function receiveTrade(
     }
   }
 
+  const syncedAt = new Date().toISOString();
   await tradesCol(uid, login)
     .doc(newId)
     .set({ ...data, login: data.login ?? login });
   await accRef.update({
-    last_trade_sync: new Date().toISOString(),
+    last_trade_sync: syncedAt,
   });
   await meter({ writes: 2, reads: 2 });
+  await touchJournalActivity(uid, syncedAt);
 }
 
 export async function receiveHeartbeat(

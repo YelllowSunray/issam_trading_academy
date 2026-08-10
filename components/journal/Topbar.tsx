@@ -18,7 +18,7 @@ export function Topbar({
   status,
   onAddTrade,
   isAdmin,
-  viewingAsLabel,
+  coachName,
   onClearAsUser,
   readOnly,
 }: {
@@ -30,7 +30,7 @@ export function Topbar({
   status: Mt5Status;
   onAddTrade: () => void;
   isAdmin?: boolean;
-  viewingAsLabel?: string | null;
+  coachName?: string | null;
   onClearAsUser?: () => void;
   readOnly?: boolean;
 }) {
@@ -79,14 +79,20 @@ export function Topbar({
             <span className="tb-label-full">P&amp;L Dashboard</span>
             <span className="tb-label-short">P&amp;L</span>
           </button>
+          {isAdmin && (
+            <Link href="/admin" className="tb-tab">
+              Coaching
+            </Link>
+          )}
         </div>
       </div>
       <div className="tb-right">
-        {viewingAsLabel && (
-          <div className="mt5-status tb-coach" style={{ gap: 8 }}>
-            Bekijkt: {viewingAsLabel}
+        {readOnly && coachName && (
+          <div className="tb-coach-chip">
+            <span className="tb-coach-chip-label">Coach-view</span>
+            <span className="tb-coach-chip-name">{coachName}</span>
             <button type="button" className="pl-reset-btn" onClick={onClearAsUser}>
-              Stop
+              Terug
             </button>
           </div>
         )}

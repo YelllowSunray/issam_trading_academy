@@ -166,8 +166,14 @@ function LoginForm() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
+              minLength={2}
+              maxLength={80}
               autoComplete="name"
+              placeholder="Voor- en achternaam"
             />
+            <div className="hint" style={{ marginTop: 6 }}>
+              Verplicht bij e-mail registratie (Google vult dit automatisch).
+            </div>
           </div>
         )}
         <div className="tj-field">

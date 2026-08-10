@@ -81,6 +81,46 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   return snap.data() as UserProfile;
 }
 
+export async function updateUserProfile(
+  uid: string,
+  patch: { displayName?: string },
+): Promise<UserProfile> {
+  const existing = await getUserProfile(uid);
+  if (!existing) {
+    throw new Response(JSON.stringify({ ok: false, error: "user not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const displayName =
+    typeof patch.displayName === "string"
+      ? patch.displayName.trim()
+      : existing.displayName;
+
+  if (!displayName || displayName.length < 2) {
+    throw new Response(
+      JSON.stringify({ ok: false, error: "Naam moet minstens 2 tekens zijn" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  const next: UserProfile = {
+    ...existing,
+    displayName,
+    updatedAt: new Date().toISOString(),
+  };
+  await userRef(uid).set(
+    { displayName: next.displayName, updatedAt: next.updatedAt },
+    { merge: true },
+  );
+  await meter({ writes: 1 });
+  return next;
+}
+
 export async function listUsers(): Promise<UserProfile[]> {
   const snap = await usersCol().get();
   await meter({ reads: Math.max(1, snap.size) });
@@ -95,6 +135,76 @@ export async function setUserDisabled(uid: string, disabled: boolean) {
     { merge: true },
   );
   await meter({ writes: 1 });
+}
+
+export async function touchJournalActivity(
+  uid: string,
+  at: string = new Date().toISOString(),
+) {
+  await userRef(uid).set(
+    { lastJournalActivityAt: at, updatedAt: new Date().toISOString() },
+    { merge: true },
+  );
+  await meter({ writes: 1 });
+}
+
+/** Best-effort peek when lastJournalActivityAt was never written. */
+async function peekJournalActivity(uid: string): Promise<string | null> {
+  const times: string[] = [];
+  const [manuals, accounts, annotations] = await Promise.all([
+    userRef(uid).collection("manual_trades").get(),
+    userRef(uid).collection("mt5_accounts").get(),
+    userRef(uid).collection("annotations").get(),
+  ]);
+  await meter({
+    reads: Math.max(1, manuals.size + accounts.size + annotations.size),
+  });
+
+  manuals.docs.forEach((d) => {
+    const createdAt = (d.data() as { createdAt?: string }).createdAt;
+    if (createdAt) times.push(createdAt);
+  });
+  accounts.docs.forEach((d) => {
+    const data = d.data() as {
+      last_trade_sync?: string | null;
+    };
+    if (data.last_trade_sync) times.push(data.last_trade_sync);
+  });
+  annotations.docs.forEach((d) => {
+    const t = d.updateTime?.toDate()?.toISOString();
+    if (t) times.push(t);
+  });
+
+  if (!times.length) return null;
+  times.sort();
+  return times[times.length - 1] || null;
+}
+
+export async function listCoachStudents(): Promise<UserProfile[]> {
+  const users = await listUsers();
+  const enriched = await Promise.all(
+    users.map(async (u) => {
+      if (u.lastJournalActivityAt) return u;
+      const peeked = await peekJournalActivity(u.uid);
+      if (peeked) {
+        // Backfill so later lists stay cheap
+        await userRef(u.uid).set(
+          { lastJournalActivityAt: peeked },
+          { merge: true },
+        );
+        await meter({ writes: 1 });
+        return { ...u, lastJournalActivityAt: peeked };
+      }
+      return { ...u, lastJournalActivityAt: null };
+    }),
+  );
+
+  return enriched.sort((a, b) => {
+    const aT = a.lastJournalActivityAt || "";
+    const bT = b.lastJournalActivityAt || "";
+    if (aT !== bT) return bT.localeCompare(aT);
+    return (a.displayName || "").localeCompare(b.displayName || "", "nl");
+  });
 }
 
 export async function toAuthUser(profile: UserProfile): Promise<AuthUser> {

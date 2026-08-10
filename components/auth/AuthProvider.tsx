@@ -21,14 +21,18 @@ import {
 } from "firebase/auth";
 import { getClientAuth } from "@/lib/firebase/client";
 import { setAuthTokenGetter, setAsUserOverride } from "@/lib/journal/api-client";
-import type { AuthUser } from "@/lib/auth/types";
+import type { AuthUser, CoachTarget } from "@/lib/auth/types";
+
+const COACH_TARGET_KEY = "tradingacadamy.coachTarget";
 
 type AuthContextValue = {
   firebaseUser: User | null;
   profile: AuthUser | null;
   loading: boolean;
   asUser: string | null;
+  coachTarget: CoachTarget | null;
   setAsUser: (uid: string | null) => void;
+  setCoachTarget: (target: CoachTarget | null) => void;
   getIdToken: () => Promise<string | null>;
   loginEmail: (email: string, password: string) => Promise<void>;
   registerEmail: (
@@ -40,15 +44,33 @@ type AuthContextValue = {
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateDisplayName: (displayName: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function readStoredCoachTarget(): CoachTarget | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(COACH_TARGET_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CoachTarget;
+    if (!parsed?.uid) return null;
+    return {
+      uid: parsed.uid,
+      displayName: parsed.displayName || "Student",
+      email: parsed.email || "",
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [asUser, setAsUserState] = useState<string | null>(null);
+  const [coachTarget, setCoachTargetState] = useState<CoachTarget | null>(null);
 
   const getIdToken = useCallback(async () => {
     const user = getClientAuth().currentUser;
@@ -60,9 +82,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthTokenGetter(getIdToken);
   }, [getIdToken]);
 
-  const setAsUser = useCallback((uid: string | null) => {
-    setAsUserState(uid);
-    setAsUserOverride(uid);
+  const setCoachTarget = useCallback((target: CoachTarget | null) => {
+    setCoachTargetState(target);
+    setAsUserOverride(target?.uid ?? null);
+    try {
+      if (target) sessionStorage.setItem(COACH_TARGET_KEY, JSON.stringify(target));
+      else sessionStorage.removeItem(COACH_TARGET_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setAsUser = useCallback(
+    (uid: string | null) => {
+      if (!uid) {
+        setCoachTarget(null);
+        return;
+      }
+      setCoachTarget({
+        uid,
+        displayName: "Student",
+        email: "",
+      });
+    },
+    [setCoachTarget],
+  );
+
+  useEffect(() => {
+    const stored = readStoredCoachTarget();
+    if (stored) {
+      setCoachTargetState(stored);
+      setAsUserOverride(stored.uid);
+    }
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -87,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setFirebaseUser(user);
       if (!user) {
         setProfile(null);
-        setAsUser(null);
+        setCoachTarget(null);
         setLoading(false);
         return;
       }
@@ -98,7 +149,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return () => unsub();
-  }, [refreshProfile, setAsUser]);
+  }, [refreshProfile, setCoachTarget]);
+
+  const asUser = coachTarget?.uid ?? null;
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -106,20 +159,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       loading,
       asUser,
+      coachTarget,
       setAsUser,
+      setCoachTarget,
       getIdToken,
       async loginEmail(email, password) {
         await signInWithEmailAndPassword(getClientAuth(), email, password);
       },
       async registerEmail(email, password, displayName) {
+        const name = displayName.trim();
+        if (name.length < 2) {
+          throw new Error("Vul je naam in (minstens 2 tekens).");
+        }
         const cred = await createUserWithEmailAndPassword(
           getClientAuth(),
           email,
           password,
         );
-        if (displayName) {
-          await updateProfile(cred.user, { displayName });
-        }
+        await updateProfile(cred.user, { displayName: name });
+        const token = await cred.user.getIdToken(true);
+        await fetch("/api/me", {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ displayName: name }),
+        });
       },
       async loginGoogle() {
         await signInWithPopup(getClientAuth(), new GoogleAuthProvider());
@@ -128,17 +194,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await sendPasswordResetEmail(getClientAuth(), email);
       },
       async logout() {
-        setAsUser(null);
+        setCoachTarget(null);
         await signOut(getClientAuth());
       },
       refreshProfile,
+      async updateDisplayName(displayName) {
+        const name = displayName.trim();
+        if (name.length < 2) {
+          throw new Error("Vul je naam in (minstens 2 tekens).");
+        }
+        const user = getClientAuth().currentUser;
+        if (!user) throw new Error("Niet ingelogd");
+        await updateProfile(user, { displayName: name });
+        await user.getIdToken(true);
+        const res = await fetch("/api/me", {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${await user.getIdToken()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ displayName: name }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(
+            (body as { error?: string }).error || "Profiel opslaan mislukt",
+          );
+        }
+        setProfile((await res.json()) as AuthUser);
+      },
     }),
     [
       firebaseUser,
       profile,
       loading,
       asUser,
+      coachTarget,
       setAsUser,
+      setCoachTarget,
       getIdToken,
       refreshProfile,
     ],

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
@@ -33,7 +34,7 @@ import { TradeModal } from "./TradeModal";
 type Page = "journal" | "dashboard";
 
 export function JournalApp() {
-  const { profile, asUser, setAsUser } = useAuth();
+  const { profile, asUser, coachTarget, setCoachTarget } = useAuth();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
 
   const [page, setPage] = useState<Page>("journal");
@@ -171,8 +172,8 @@ export function JournalApp() {
         status={status}
         onAddTrade={() => setShowTradeModal(true)}
         isAdmin={profile?.role === "admin"}
-        viewingAsLabel={readOnly ? asUser : null}
-        onClearAsUser={() => setAsUser(null)}
+        coachName={readOnly ? coachTarget?.displayName : null}
+        onClearAsUser={() => setCoachTarget(null)}
         readOnly={readOnly}
       />
 
@@ -182,9 +183,28 @@ export function JournalApp() {
             {bootError}
           </div>
         )}
-        {readOnly && (
-          <div className="pl-empty" style={{ marginBottom: 16 }}>
-            Read-only coach view — je bekijkt de journal van een student.
+        {readOnly && coachTarget && (
+          <div className="coach-banner">
+            <div>
+              <div className="coach-banner-kicker">Je coacht nu</div>
+              <div className="coach-banner-name">{coachTarget.displayName}</div>
+              {coachTarget.email ? (
+                <div className="coach-banner-email">{coachTarget.email}</div>
+              ) : null}
+            </div>
+            <div className="coach-banner-actions">
+              <Link href="/admin" className="pl-reset-btn">
+                Alle studenten
+              </Link>
+              <button
+                type="button"
+                className="tb-addbtn"
+                style={{ fontSize: 12, padding: "8px 12px" }}
+                onClick={() => setCoachTarget(null)}
+              >
+                Stop coach-view
+              </button>
+            </div>
           </div>
         )}
         {booting && !bootError ? (

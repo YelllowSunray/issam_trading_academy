@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminBucket, adminDb } from "@/lib/firebase/admin";
-import { userRef } from "@/lib/users/store";
+import { touchJournalActivity, userRef } from "@/lib/users/store";
 import type {
   AppSettings,
   ManualTrade,
@@ -51,12 +51,14 @@ export async function createManualTrade(
   };
   await manualCol(uid).doc(id).set(trade);
   await meter({ writes: 1 });
+  await touchJournalActivity(uid, trade.createdAt);
   return trade;
 }
 
 export async function deleteManualTrade(uid: string, id: string) {
   await manualCol(uid).doc(id).delete();
   await meter({ deletes: 1 });
+  await touchJournalActivity(uid);
 }
 
 export async function getAnnotation(
@@ -103,6 +105,7 @@ export async function upsertAnnotation(
   };
   await annotationsCol(uid).doc(tradeId).set(cleaned, { merge: true });
   await meter({ writes: 1 });
+  await touchJournalActivity(uid);
   return cleaned;
 }
 

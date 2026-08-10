@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { CopyButton } from "@/components/ui/CopyButton";
@@ -11,19 +11,26 @@ import {
 } from "@/lib/journal/api-client";
 
 function SettingsInner() {
-  const { profile, logout } = useAuth();
+  const { profile, logout, updateDisplayName } = useAuth();
   const [meta, setMeta] = useState<{
     configured: boolean;
     createdAt: string | null;
   } | null>(null);
   const [plainSecret, setPlainSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [profileInfo, setProfileInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [displayName, setDisplayName] = useState(profile?.displayName || "");
 
   const origin =
     typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000";
   const tradeUrl = `${origin}/api/mt5-trade`;
   const heartbeatUrl = `${origin}/api/heartbeat`;
+
+  useEffect(() => {
+    setDisplayName(profile?.displayName || "");
+  }, [profile?.displayName]);
 
   useEffect(() => {
     fetchMt5SecretMeta()
@@ -51,35 +58,82 @@ function SettingsInner() {
     }
   }
 
+  async function onSaveProfile(e: FormEvent) {
+    e.preventDefault();
+    setProfileBusy(true);
+    setError(null);
+    setProfileInfo(null);
+    try {
+      await updateDisplayName(displayName);
+      setProfileInfo("Profiel opgeslagen.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Opslaan mislukt");
+    } finally {
+      setProfileBusy(false);
+    }
+  }
+
   return (
     <div className="journal-main">
       <PageHeader
-        title="Instellingen"
-        subtitle="Profiel, MT5 koppeling en EA-setup."
+        title="Profiel & instellingen"
+        subtitle="Pas je naam aan, beheer MT5-koppeling en EA-setup."
       />
 
       <div className="tj-panel">
         <div className="ttl" style={{ marginBottom: 10 }}>
           PROFIEL
         </div>
-        <div style={{ fontSize: 13, lineHeight: 1.7 }}>
-          <div>
-            <span style={{ color: "var(--paper-dim)" }}>Naam:</span>{" "}
-            {profile?.displayName}
+        <form onSubmit={onSaveProfile}>
+          <div className="tj-field">
+            <div className="lbl">Naam</div>
+            <input
+              className="tj-input"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              required
+              minLength={2}
+              maxLength={80}
+              autoComplete="name"
+              placeholder="Jouw naam"
+            />
+            <div className="hint" style={{ marginTop: 6 }}>
+              Dit is de naam die coaches en jijzelf in de app zien.
+            </div>
           </div>
-          <div>
-            <span style={{ color: "var(--paper-dim)" }}>E-mail:</span>{" "}
-            {profile?.email}
+          <div className="tj-field">
+            <div className="lbl">E-mail</div>
+            <input
+              className="tj-input"
+              value={profile?.email || ""}
+              disabled
+              readOnly
+            />
           </div>
-          <div>
-            <span style={{ color: "var(--paper-dim)" }}>Rol:</span>{" "}
-            {profile?.role}
+          <div className="tj-field">
+            <div className="lbl">Rol</div>
+            <input
+              className="tj-input"
+              value={
+                profile?.role === "admin" ? "Coach / admin" : "Student"
+              }
+              disabled
+              readOnly
+            />
           </div>
-        </div>
+          {profileInfo && (
+            <div className="pl-empty" style={{ marginBottom: 12 }}>
+              {profileInfo}
+            </div>
+          )}
+          <button className="tj-savebtn" type="submit" disabled={profileBusy}>
+            {profileBusy ? "Opslaan…" : "Profiel opslaan"}
+          </button>
+        </form>
         <button
           type="button"
           className="pl-reset-btn"
-          style={{ marginTop: 14 }}
+          style={{ marginTop: 12, width: "100%" }}
           onClick={() => logout()}
         >
           Uitloggen

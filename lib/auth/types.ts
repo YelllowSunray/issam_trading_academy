@@ -8,6 +8,14 @@ export type UserProfile = {
   disabled: boolean;
   createdAt: string;
   updatedAt: string;
+  /** ISO timestamp of last journal/MT5 activity (for coaching overview). */
+  lastJournalActivityAt?: string | null;
+};
+
+export type CoachTarget = {
+  uid: string;
+  displayName: string;
+  email: string;
 };
 
 export type AuthUser = {

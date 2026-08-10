@@ -52,6 +52,16 @@ export async function fetchMe() {
   );
 }
 
+export async function updateMe(patch: { displayName: string }) {
+  return parseJson<AuthUser>(
+    await fetch("/api/me", {
+      method: "PATCH",
+      headers: await authHeaders(true),
+      body: JSON.stringify(patch),
+    }),
+  );
+}
+
 export async function fetchAccounts() {
   return parseJson<Mt5AccountSummary[]>(
     await fetch(withAsUser("/api/accounts"), { headers: await authHeaders() }),
