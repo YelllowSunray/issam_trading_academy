@@ -19,6 +19,14 @@ export const metadata: Metadata = {
   title: "TradingAcadamy — Trading Academy Journal",
   description:
     "Issam's trading academy: trade journal, live P&L dashboard en MT5-sync voor serieuze traders.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  manifest: "/site.webmanifest",
 };
 
 export const viewport: Viewport = {
