@@ -1,3 +1,4 @@
+import { FieldValue } from "firebase-admin/firestore";
 import { trackUsage } from "@/lib/billing/meter";
 import { HEARTBEAT_TIMEOUT_SECONDS, LEGACY_BUCKET } from "@/lib/journal/constants";
 import type { Mt5AccountSummary, Mt5Status, Mt5Trade } from "@/lib/journal/types";
@@ -16,7 +17,12 @@ type AccountDoc = {
   info: Mt5Status["account"];
   last_heartbeat: string | null;
   last_trade_sync: string | null;
+  trade_count?: number;
 };
+
+/** Warm-instance caches to avoid repeat reads on heartbeat hot path. */
+const knownAccounts = new Set<string>();
+const legacyMigrated = new Set<string>();
 
 function accountsCol(uid: string) {
   return userRef(uid).collection("mt5_accounts");
@@ -42,13 +48,19 @@ function isConnected(lastHeartbeat: string | null) {
 
 async function migrateLegacyIfNeeded(uid: string, login: string) {
   if (login === LEGACY_BUCKET) return;
+  const key = `${uid}:${login}`;
+  if (legacyMigrated.has(key)) return;
+
   const legacyRef = accountsCol(uid).doc(LEGACY_BUCKET);
   const targetRef = accountsCol(uid).doc(login);
   const [legacySnap, targetSnap] = await Promise.all([
     legacyRef.get(),
     targetRef.get(),
   ]);
-  if (!legacySnap.exists || targetSnap.exists) return;
+  if (!legacySnap.exists || targetSnap.exists) {
+    legacyMigrated.add(key);
+    return;
+  }
 
   const legacyData = legacySnap.data() as AccountDoc;
   await targetRef.set(legacyData);
@@ -61,13 +73,30 @@ async function migrateLegacyIfNeeded(uid: string, login: string) {
   });
   batch.delete(legacyRef);
   await batch.commit();
+  legacyMigrated.add(key);
+  knownAccounts.add(key);
 }
 
 async function ensureAccount(uid: string, login: string) {
   const ref = accountsCol(uid).doc(login);
+  const key = `${uid}:${login}`;
+  if (knownAccounts.has(key)) return ref;
   const snap = await ref.get();
   if (!snap.exists) await ref.set(emptyAccount());
+  knownAccounts.add(key);
   return ref;
+}
+
+async function resolveTradeCount(
+  uid: string,
+  login: string,
+  data: AccountDoc,
+): Promise<number> {
+  if (typeof data.trade_count === "number") return data.trade_count;
+  const tradesSnap = await tradesCol(uid, login).count().get();
+  const count = tradesSnap.data().count;
+  await accountsCol(uid).doc(login).set({ trade_count: count }, { merge: true });
+  return count;
 }
 
 export async function receiveTrade(
@@ -97,14 +126,18 @@ export async function receiveTrade(
     }
   }
 
+  const tradeRef = tradesCol(uid, login).doc(newId);
+  const existingTrade = await tradeRef.get();
   const syncedAt = new Date().toISOString();
-  await tradesCol(uid, login)
-    .doc(newId)
-    .set({ ...data, login: data.login ?? login });
-  await accRef.update({
+  await tradeRef.set({ ...data, login: data.login ?? login });
+  const updates: Record<string, unknown> = {
     last_trade_sync: syncedAt,
-  });
-  await meter({ writes: 2, reads: 2 });
+  };
+  if (!existingTrade.exists) {
+    updates.trade_count = FieldValue.increment(1);
+  }
+  await accRef.update(updates);
+  await meter({ writes: 2, reads: 3 });
   await touchJournalActivity(uid, syncedAt);
 }
 
@@ -115,6 +148,7 @@ export async function receiveHeartbeat(
   const login = loginFrom(data);
   await migrateLegacyIfNeeded(uid, login);
   const accRef = await ensureAccount(uid, login);
+  // Hot path: one merge write, no usage-meter write (batched meter skipped here).
   await accRef.set(
     {
       info: data,
@@ -122,7 +156,6 @@ export async function receiveHeartbeat(
     },
     { merge: true },
   );
-  await meter({ writes: 1, reads: 1 });
 }
 
 export async function listAccounts(uid: string): Promise<Mt5AccountSummary[]> {
@@ -131,20 +164,20 @@ export async function listAccounts(uid: string): Promise<Mt5AccountSummary[]> {
 
   for (const doc of snap.docs) {
     const data = (doc.data() as AccountDoc) || emptyAccount();
-    const tradesSnap = await tradesCol(uid, doc.id).count().get();
     const info = data.info || {};
+    const tradeCount = await resolveTradeCount(uid, doc.id, data);
     out.push({
       login: doc.id,
       balance: (info as { balance?: number }).balance ?? null,
       equity: (info as { equity?: number }).equity ?? null,
       currency: (info as { currency?: string }).currency ?? null,
       connected: isConnected(data.last_heartbeat),
-      trade_count: tradesSnap.data().count,
+      trade_count: tradeCount,
       last_heartbeat: data.last_heartbeat,
     });
   }
 
-  await meter({ reads: Math.max(1, snap.size) + snap.size });
+  await meter({ reads: Math.max(1, snap.size) });
   out.sort((a, b) => a.login.localeCompare(b.login));
   return out;
 }
@@ -186,12 +219,12 @@ export async function getStatus(
   }
   const snap = await accountsCol(uid).doc(resolved).get();
   const data = (snap.data() as AccountDoc) || emptyAccount();
-  const tradesSnap = await tradesCol(uid, resolved).count().get();
-  await meter({ reads: 2 });
+  const tradeCount = await resolveTradeCount(uid, resolved, data);
+  // Status is polled often — don't meter every hit.
   return {
     connected: isConnected(data.last_heartbeat),
     account: data.info,
-    trade_count: tradesSnap.data().count,
+    trade_count: tradeCount,
     last_sync: data.last_trade_sync,
     last_heartbeat: data.last_heartbeat,
   };

@@ -43,5 +43,6 @@ export const MONTHS_NL = [
 
 export const DOW_NL = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 
-export const HEARTBEAT_TIMEOUT_SECONDS = 90;
+/** EA default heartbeat is 60s; allow some slack before UI shows offline. */
+export const HEARTBEAT_TIMEOUT_SECONDS = 150;
 export const LEGACY_BUCKET = "onbekend";

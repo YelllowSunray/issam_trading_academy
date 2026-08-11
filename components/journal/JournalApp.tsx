@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   createManualTrade,
@@ -33,6 +33,10 @@ import { TradeModal } from "./TradeModal";
 
 type Page = "journal" | "dashboard";
 
+/** Status/online poll — keep light. Full trade reload only on sync changes. */
+const MT5_STATUS_POLL_MS = 45_000;
+const MT5_ACCOUNTS_POLL_MS = 3 * 60_000;
+
 export function JournalApp() {
   const { profile, asUser, coachTarget, setCoachTarget } = useAuth();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
@@ -57,6 +61,9 @@ export function JournalApp() {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
+  const lastSyncRef = useRef<string | null>(null);
+  const lastTradeCountRef = useRef<number>(0);
+  const lastAccountsFetchRef = useRef(0);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
@@ -84,34 +91,67 @@ export function JournalApp() {
     setAnnotations(anns);
   }, []);
 
-  const pollMt5 = useCallback(async (login: string | null) => {
-    try {
-      const list = await fetchAccounts();
-      setAccounts(list);
-      const wanted =
-        login && list.some((a) => String(a.login) === String(login))
-          ? login
-          : list[0]?.login || null;
-      if (wanted && wanted !== login) setSelectedLogin(wanted);
-      const q = wanted;
-      const [s, trades] = await Promise.all([
-        fetchStatus(q),
-        fetchMt5Trades(q),
-      ]);
-      setStatus(s);
-      setMt5Trades(trades);
-    } catch {
-      setAccounts([]);
-      setStatus({
-        connected: false,
-        account: null,
-        trade_count: 0,
-        last_sync: null,
-        last_heartbeat: null,
-        error: "niet bereikbaar",
-      });
-    }
-  }, []);
+  const pollMt5 = useCallback(
+    async (login: string | null, opts?: { full?: boolean }) => {
+      const full = Boolean(opts?.full);
+      try {
+        const now = Date.now();
+        const shouldRefreshAccounts =
+          full || now - lastAccountsFetchRef.current >= MT5_ACCOUNTS_POLL_MS;
+
+        let wanted = login;
+        if (shouldRefreshAccounts) {
+          const list = await fetchAccounts();
+          lastAccountsFetchRef.current = now;
+          setAccounts(list);
+          wanted =
+            login && list.some((a) => String(a.login) === String(login))
+              ? login
+              : list[0]?.login || null;
+          if (wanted && wanted !== login) setSelectedLogin(wanted);
+        }
+
+        const s = await fetchStatus(wanted);
+        setStatus(s);
+
+        setAccounts((prev) =>
+          prev.map((a) =>
+            String(a.login) === String(wanted)
+              ? {
+                  ...a,
+                  connected: s.connected,
+                  balance: s.account?.balance ?? a.balance,
+                  equity: s.account?.equity ?? a.equity,
+                  currency: s.account?.currency ?? a.currency,
+                  trade_count: s.trade_count,
+                  last_heartbeat: s.last_heartbeat,
+                }
+              : a,
+          ),
+        );
+
+        const syncChanged = s.last_sync !== lastSyncRef.current;
+        const countChanged = s.trade_count !== lastTradeCountRef.current;
+        if (full || syncChanged || countChanged) {
+          const trades = await fetchMt5Trades(wanted);
+          setMt5Trades(trades);
+          lastSyncRef.current = s.last_sync;
+          lastTradeCountRef.current = s.trade_count;
+        }
+      } catch {
+        if (full) setAccounts([]);
+        setStatus({
+          connected: false,
+          account: null,
+          trade_count: 0,
+          last_sync: null,
+          last_heartbeat: null,
+          error: "niet bereikbaar",
+        });
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +163,7 @@ export function JournalApp() {
         if (cancelled) return;
         setSelectedLogin(settings.selectedLogin);
         await refreshJournal();
-        await pollMt5(settings.selectedLogin);
+        await pollMt5(settings.selectedLogin, { full: true });
       } catch (err) {
         if (!cancelled) {
           setBootError(
@@ -144,7 +184,7 @@ export function JournalApp() {
   useEffect(() => {
     const id = setInterval(() => {
       void pollMt5(selectedLogin);
-    }, 15000);
+    }, MT5_STATUS_POLL_MS);
     return () => clearInterval(id);
   }, [pollMt5, selectedLogin, asUser]);
 
@@ -167,7 +207,9 @@ export function JournalApp() {
         onSelectLogin={async (login) => {
           setSelectedLogin(login);
           if (!readOnly) await saveSettings({ selectedLogin: login });
-          await pollMt5(login);
+          lastSyncRef.current = null;
+          lastTradeCountRef.current = -1;
+          await pollMt5(login, { full: true });
         }}
         status={status}
         onAddTrade={() => setShowTradeModal(true)}

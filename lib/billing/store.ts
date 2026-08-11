@@ -105,7 +105,21 @@ export async function setBillingExceeded(input: {
   return next;
 }
 
+type BillingCache = {
+  at: number;
+  state: BillingState;
+};
+
+let billingCache: BillingCache | null = null;
+const BILLING_CACHE_MS = 120_000;
+
 export async function assertBillingActive() {
+  const now = Date.now();
+  if (billingCache && now - billingCache.at < BILLING_CACHE_MS) {
+    if (!billingCache.state.exceeded) return billingCache.state;
+    // Fall through when locked so clients still get the full 503 payload.
+  }
+
   let state = await getBillingState();
 
   // Self-metered usage can lock the app without a GCP budget alert.
@@ -119,6 +133,8 @@ export async function assertBillingActive() {
       });
     }
   }
+
+  billingCache = { at: now, state };
 
   if (!state.exceeded) return state;
 

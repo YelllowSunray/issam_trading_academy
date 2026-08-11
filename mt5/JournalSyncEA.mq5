@@ -20,7 +20,7 @@ input string TradeURL     = "https://issam-trading-academy.vercel.app/api/mt5-tr
 input string HeartbeatURL = "https://issam-trading-academy.vercel.app/api/heartbeat";
 input string IngestSecret = "";
 input datetime BackfillFrom = D'2026.01.01 00:00:00';
-input int HeartbeatSeconds = 30;
+input int HeartbeatSeconds = 60;
 
 bool backfillDone = false;
 

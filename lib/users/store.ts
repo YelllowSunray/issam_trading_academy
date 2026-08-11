@@ -20,6 +20,10 @@ function ingestLookupCol() {
   return adminDb().collection("mt5_ingest_secrets");
 }
 
+type IngestCacheEntry = { uid: string | null; at: number };
+const ingestUidCache = new Map<string, IngestCacheEntry>();
+const INGEST_CACHE_MS = 10 * 60_000;
+
 function adminEmails(): Set<string> {
   const raw = process.env.ADMIN_EMAILS || "";
   return new Set(
@@ -226,6 +230,7 @@ export async function rotateIngestSecret(uid: string, plainSecret: string) {
     uid,
     createdAt: new Date().toISOString(),
   });
+  ingestUidCache.clear();
   await meter({ reads: 1, writes: 2, deletes: prev.exists ? 1 : 0 });
 }
 
@@ -242,17 +247,35 @@ export async function resolveUidFromIngestSecret(
 ): Promise<string | null> {
   if (!secret) return null;
   const hash = hashIngestSecret(secret);
+  const cached = ingestUidCache.get(hash);
+  if (cached && Date.now() - cached.at < INGEST_CACHE_MS) {
+    return cached.uid;
+  }
+
   const snap = await ingestLookupCol().doc(hash).get();
-  if (!snap.exists) return null;
+  if (!snap.exists) {
+    ingestUidCache.set(hash, { uid: null, at: Date.now() });
+    return null;
+  }
   const uid = (snap.data() as { uid?: string }).uid;
-  if (!uid) return null;
+  if (!uid) {
+    ingestUidCache.set(hash, { uid: null, at: Date.now() });
+    return null;
+  }
   // defensive re-check hash stored on user
   const cred = await userRef(uid).collection("private").doc("mt5_credentials").get();
   const stored = (cred.data() as { ingestSecretHash?: string } | undefined)
     ?.ingestSecretHash;
-  if (!stored || !secretsEqual(stored, hash)) return null;
+  if (!stored || !secretsEqual(stored, hash)) {
+    ingestUidCache.set(hash, { uid: null, at: Date.now() });
+    return null;
+  }
   const profile = await getUserProfile(uid);
-  if (!profile || profile.disabled) return null;
+  if (!profile || profile.disabled) {
+    ingestUidCache.set(hash, { uid: null, at: Date.now() });
+    return null;
+  }
+  ingestUidCache.set(hash, { uid, at: Date.now() });
   return uid;
 }
 
