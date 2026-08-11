@@ -6,16 +6,18 @@
 //|   1. Kopieer dit bestand naar MQL5/Experts/                         |
 //|   2. Compileer in MetaEditor (F7)                                   |
 //|   3. Extra/Tools > Opties > Expert Advisors >                       |
-//|      WebRequest toestaan voor: http://127.0.0.1:3000               |
+//|      WebRequest toestaan voor:                                      |
+//|        https://issam-trading-academy.vercel.app                     |
 //|   4. Sleep EA op een chart, AutoTrading aan                         |
-//|   5. Start de Next.js app: npm run dev                              |
-//|   6. Verplicht: IngestSecret = secret uit app Instellingen           |
+//|   5. Verplicht: IngestSecret = secret uit app Instellingen          |
+//|   Lokaal testen: TradeURL/HeartbeatURL naar                         |
+//|     http://127.0.0.1:3000/api/... en WebRequest voor die host.      |
 //+------------------------------------------------------------------+
 #property copyright "TradingAcadamy"
 #property strict
 
-input string TradeURL     = "http://127.0.0.1:3000/api/mt5-trade";
-input string HeartbeatURL = "http://127.0.0.1:3000/api/heartbeat";
+input string TradeURL     = "https://issam-trading-academy.vercel.app/api/mt5-trade";
+input string HeartbeatURL = "https://issam-trading-academy.vercel.app/api/heartbeat";
 input string IngestSecret = "";
 input datetime BackfillFrom = D'2026.01.01 00:00:00';
 input int HeartbeatSeconds = 30;
