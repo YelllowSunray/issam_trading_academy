@@ -217,6 +217,7 @@ export function JournalApp() {
         coachName={readOnly ? coachTarget?.displayName : null}
         onClearAsUser={() => setCoachTarget(null)}
         readOnly={readOnly}
+        embedded
       />
 
       <main className="journal-main">

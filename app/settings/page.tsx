@@ -3,15 +3,20 @@
 import { FormEvent, useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PlatformShell } from "@/components/platform/PlatformShell";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { isActiveMembership, MEMBERSHIP_LABELS } from "@/lib/auth/membership";
 import {
+  confirmCheckout,
   fetchMt5SecretMeta,
+  openBillingPortal,
   rotateMt5Secret,
+  startCheckout,
 } from "@/lib/journal/api-client";
 
 function SettingsInner() {
-  const { profile, logout, updateDisplayName } = useAuth();
+  const { profile, logout, updateDisplayName, refreshProfile } = useAuth();
   const [meta, setMeta] = useState<{
     configured: boolean;
     createdAt: string | null;
@@ -22,6 +27,7 @@ function SettingsInner() {
   const [busy, setBusy] = useState(false);
   const [profileBusy, setProfileBusy] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || "");
+  const member = isActiveMembership(profile?.membership, profile?.role);
 
   const origin =
     typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000";
@@ -33,10 +39,34 @@ function SettingsInner() {
   }, [profile?.displayName]);
 
   useEffect(() => {
+    if (!member) return;
     fetchMt5SecretMeta()
       .then(setMeta)
       .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, []);
+  }, [member]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "cancel") {
+      setError("Checkout geannuleerd.");
+      return;
+    }
+    if (params.get("checkout") !== "success") return;
+    const sessionId = params.get("session_id");
+    if (!sessionId) {
+      setProfileInfo("Betaling ontvangen. Vernieuw de pagina als toegang nog niet actief is.");
+      return;
+    }
+    confirmCheckout(sessionId)
+      .then(async () => {
+        await refreshProfile();
+        setProfileInfo("Abonnement actief. Je hebt nu het volledige platform.");
+        window.history.replaceState({}, "", "/settings");
+      })
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Bevestigen van betaling mislukt"),
+      );
+  }, [refreshProfile]);
 
   async function handleRotate() {
     if (meta?.configured) {
@@ -77,8 +107,53 @@ function SettingsInner() {
     <div className="journal-main">
       <PageHeader
         title="Profiel & instellingen"
-        subtitle="Pas je naam aan, beheer MT5-koppeling en EA-setup."
+        subtitle="Pas je naam aan, beheer lidmaatschap en MT5-koppeling."
+        backHref="/journal"
+        backLabel="← Platform"
       />
+
+      <div className="tj-panel">
+        <div className="ttl" style={{ marginBottom: 10 }}>
+          LIDMAATSCHAP
+        </div>
+        <div className="status-chip" style={{ marginBottom: 12 }}>
+          {profile ? MEMBERSHIP_LABELS[profile.membership] : "—"}
+        </div>
+        <p className="pl-sub2" style={{ marginBottom: 12 }}>
+          1:1-klanten worden door Issam op coaching_free gezet. Platform-only
+          leden betalen via Stripe.
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="tb-addbtn"
+            onClick={async () => {
+              try {
+                const { url } = await startCheckout();
+                window.location.href = url;
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Checkout mislukt");
+              }
+            }}
+          >
+            Word lid / verlengen
+          </button>
+          <button
+            type="button"
+            className="pl-reset-btn"
+            onClick={async () => {
+              try {
+                const { url } = await openBillingPortal();
+                window.location.href = url;
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Portal mislukt");
+              }
+            }}
+          >
+            Stripe-portaal
+          </button>
+        </div>
+      </div>
 
       <div className="tj-panel">
         <div className="ttl" style={{ marginBottom: 10 }}>
@@ -140,6 +215,8 @@ function SettingsInner() {
         </button>
       </div>
 
+      {member && (
+      <>
       <div className="tj-panel">
         <div
           className="ttl"
@@ -219,6 +296,8 @@ function SettingsInner() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -226,7 +305,9 @@ function SettingsInner() {
 export default function SettingsPage() {
   return (
     <RequireAuth>
-      <SettingsInner />
+      <PlatformShell>
+        <SettingsInner />
+      </PlatformShell>
     </RequireAuth>
   );
 }

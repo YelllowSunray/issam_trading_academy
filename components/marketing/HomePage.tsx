@@ -6,20 +6,20 @@ import { useAuth } from "@/components/auth/AuthProvider";
 
 const FEATURES = [
   {
-    title: "Trade Journal",
-    body: "Log setups met richting, R-multiple, SMC-tags, notities en screenshots — handmatig of vanuit MT5.",
+    title: "Trade Journal + MT5",
+    body: "Per-lid journal, P&L en Expert Advisor-sync. Geen Python-bridge — trades gaan rechtstreeks naar je account.",
   },
   {
-    title: "Live P&L Dashboard",
-    body: "Winrate, drawdown, profit factor, equity curve en breakdowns per instrument, sessie en dag.",
+    title: "Cursus & community",
+    body: "Modules met video + voortgang, plus een Telegram-invite die alleen leden zien.",
   },
   {
-    title: "MT5 Auto-sync",
-    body: "Gesloten trades en heartbeats komen automatisch binnen via de Expert Advisor, per account gescheiden.",
+    title: "Markets, nieuws & tools",
+    body: "TradingView-charts voor XAUUSD, WTI, US500 en BTC, calculators, kalender en een crypto-overzicht.",
   },
   {
-    title: "Academy accounts",
-    body: "Elke student heeft een eigen journal. Coaches kunnen read-only meekijken en vooruitgang bespreken.",
+    title: "Lidmaatschap",
+    body: "1:1-coaching gratis via Issam, of self-service Stripe. Admins zien iedereen in één overzicht.",
   },
 ];
 
@@ -27,7 +27,7 @@ export function HomePage() {
   const { firebaseUser, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const primaryHref = firebaseUser ? "/journal" : "/login?next=/journal";
-  const primaryLabel = firebaseUser ? "Open journal" : "Start met journal";
+  const primaryLabel = firebaseUser ? "Open platform" : "Start met journal";
 
   useEffect(() => {
     document.documentElement.style.scrollBehavior = "smooth";
@@ -70,7 +70,7 @@ export function HomePage() {
                   className="home-nav-cta"
                   onClick={() => setMenuOpen(false)}
                 >
-                  Journal
+                  Platform
                 </Link>
               ) : (
                 <>
@@ -134,8 +134,8 @@ export function HomePage() {
             Duidelijkheid in je cijfers.
           </h1>
           <p className="home-hero-lead">
-            De journal en P&amp;L omgeving voor Issam&apos;s trading academy —
-            van MT5-sync tot reviewbare setups.
+            Educatie, Telegram-community, journal en markets — één account voor
+            Issam&apos;s TradingAcadamy.
           </p>
           <div className="home-hero-actions">
             <Link href={primaryHref} className="home-btn home-btn-primary">

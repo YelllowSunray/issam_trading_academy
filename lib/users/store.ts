@@ -2,7 +2,16 @@ import { ApiError } from "@/lib/api/errors";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminDb } from "@/lib/firebase/admin";
 import { hashIngestSecret, secretsEqual } from "@/lib/auth/secrets";
-import type { AuthUser, UserProfile, UserRole } from "@/lib/auth/types";
+import {
+  hasPlatformAccess,
+  normalizeMembership,
+} from "@/lib/auth/membership";
+import type {
+  AuthUser,
+  MembershipStatus,
+  UserProfile,
+  UserRole,
+} from "@/lib/auth/types";
 
 async function meter(delta: Parameters<typeof trackUsage>[0]) {
   try {
@@ -55,9 +64,11 @@ export async function ensureUserProfile(input: {
       email,
       displayName: input.displayName || email.split("@")[0] || "Trader",
       role: isAdmin ? "admin" : "student",
+      membership: isAdmin ? "coaching_free" : "none",
       disabled: false,
       createdAt: now,
       updatedAt: now,
+      lastSeenAt: now,
     };
     await ref.set(profile);
     await meter({ reads: 1, writes: 1 });
@@ -67,12 +78,20 @@ export async function ensureUserProfile(input: {
   const existing = snap.data() as UserProfile;
   const role: UserRole =
     existing.role === "admin" || isAdmin ? "admin" : "student";
+  const membership = existing.membership
+    ? existing.membership
+    : normalizeMembership({ ...existing, role });
+  const seenStale =
+    !existing.lastSeenAt ||
+    Date.now() - new Date(existing.lastSeenAt).getTime() > 15 * 60_000;
   const next: UserProfile = {
     ...existing,
     email: email || existing.email,
     displayName: input.displayName || existing.displayName,
     role,
+    membership,
     updatedAt: now,
+    lastSeenAt: seenStale ? now : existing.lastSeenAt || now,
   };
   await ref.set(next, { merge: true });
   await meter({ reads: 1, writes: 1 });
@@ -121,7 +140,10 @@ export async function listUsers(): Promise<UserProfile[]> {
   const snap = await usersCol().get();
   await meter({ reads: Math.max(1, snap.size) });
   return snap.docs
-    .map((d) => d.data() as UserProfile)
+    .map((d) => {
+      const data = d.data() as UserProfile;
+      return { ...data, membership: normalizeMembership(data) };
+    })
     .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }
 
@@ -203,12 +225,69 @@ export async function listCoachStudents(): Promise<UserProfile[]> {
   });
 }
 
+export async function setUserMembership(
+  uid: string,
+  membership: MembershipStatus,
+  actorUid?: string,
+) {
+  const existing = await getUserProfile(uid);
+  if (!existing) {
+    throw new ApiError("user not found", 404);
+  }
+  if (existing.role === "admin" && membership !== "coaching_free") {
+    throw new ApiError("admins houden altijd toegang", 400);
+  }
+  const now = new Date().toISOString();
+  await userRef(uid).set(
+    {
+      membership,
+      membershipUpdatedAt: now,
+      membershipUpdatedBy: actorUid || null,
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+  await meter({ writes: 1 });
+  return { ...existing, membership, membershipUpdatedAt: now };
+}
+
+export async function setStripeIds(
+  uid: string,
+  patch: {
+    stripeCustomerId?: string | null;
+    stripeSubscriptionId?: string | null;
+    membership?: MembershipStatus;
+  },
+) {
+  await userRef(uid).set(
+    {
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true },
+  );
+  await meter({ writes: 1 });
+}
+
+export async function findUserByStripeCustomerId(
+  customerId: string,
+): Promise<UserProfile | null> {
+  const snap = await usersCol()
+    .where("stripeCustomerId", "==", customerId)
+    .limit(1)
+    .get();
+  await meter({ reads: Math.max(1, snap.size) });
+  if (snap.empty) return null;
+  return snap.docs[0].data() as UserProfile;
+}
+
 export async function toAuthUser(profile: UserProfile): Promise<AuthUser> {
   return {
     uid: profile.uid,
     email: profile.email,
     displayName: profile.displayName,
     role: profile.role,
+    membership: normalizeMembership(profile),
     disabled: Boolean(profile.disabled),
   };
 }
@@ -271,7 +350,7 @@ export async function resolveUidFromIngestSecret(
     return null;
   }
   const profile = await getUserProfile(uid);
-  if (!profile || profile.disabled) {
+  if (!profile || profile.disabled || !hasPlatformAccess(profile)) {
     ingestUidCache.set(hash, { uid: null, at: Date.now() });
     return null;
   }

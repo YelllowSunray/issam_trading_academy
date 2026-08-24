@@ -6,14 +6,20 @@ import { toAuthUser, updateUserProfile } from "@/lib/users/store";
 export async function GET(req: Request) {
   return withApiError(async () => {
     // Always allow profile fetch so the client can render billing lock UI.
-    const user = await requireAuthUser(req, { allowWhenBillingExceeded: true });
+    const user = await requireAuthUser(req, {
+      allowWhenBillingExceeded: true,
+      allowWithoutMembership: true,
+    });
     return NextResponse.json(user);
   });
 }
 
 export async function PATCH(req: Request) {
   return withApiError(async () => {
-    const user = await requireAuthUser(req, { allowWhenBillingExceeded: true });
+    const user = await requireAuthUser(req, {
+      allowWhenBillingExceeded: true,
+      allowWithoutMembership: true,
+    });
     const body = (await req.json().catch(() => ({}))) as {
       displayName?: unknown;
     };

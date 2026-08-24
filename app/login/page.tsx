@@ -113,9 +113,9 @@ function LoginForm() {
 
   const subtitle =
     mode === "login"
-      ? "Log in op je trading journal"
+      ? "Log in op het academy-platform"
       : mode === "register"
-        ? "Maak een academy-account"
+        ? "Account aanmaken — toegang volgt via coaching of Stripe"
         : "Wachtwoord resetten";
 
   return (

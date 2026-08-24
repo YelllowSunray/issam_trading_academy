@@ -13,7 +13,10 @@ import { writeAuditLog } from "@/lib/users/store";
 export async function GET(req: Request) {
   return withApiError(async () => {
     // Readable while locked so the UI can show the block screen.
-    await requireAuthUser(req, { allowWhenBillingExceeded: true });
+    await requireAuthUser(req, {
+      allowWhenBillingExceeded: true,
+      allowWithoutMembership: true,
+    });
     const [state, usage] = await Promise.all([
       getBillingState(),
       getUsageSnapshot(),
@@ -24,7 +27,10 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   return withApiError(async () => {
-    const user = await requireAuthUser(req, { allowWhenBillingExceeded: true });
+    const user = await requireAuthUser(req, {
+      allowWhenBillingExceeded: true,
+      allowWithoutMembership: true,
+    });
     if (!isBillingOwner(user.email)) {
       throw new ApiError(
         "Alleen Samir mag de app handmatig blokkeren of ontgrendelen.",

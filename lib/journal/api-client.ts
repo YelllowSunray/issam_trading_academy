@@ -1,4 +1,6 @@
-import type { AuthUser } from "@/lib/auth/types";
+import type { AuthUser, MembershipStatus, UserProfile } from "@/lib/auth/types";
+import type { Course, LessonProgress, PlatformSettings } from "@/lib/platform/types";
+import type { AdminOverview, MemberRow } from "@/lib/platform/types";
 import type {
   AppSettings,
   ManualTrade,
@@ -7,7 +9,6 @@ import type {
   Mt5Trade,
   TradeAnnotation,
 } from "./types";
-import type { UserProfile } from "@/lib/auth/types";
 
 type TokenGetter = () => Promise<string | null>;
 
@@ -188,6 +189,188 @@ export async function setAdminUserDisabled(uid: string, disabled: boolean) {
       method: "PATCH",
       headers: await authHeaders(true),
       body: JSON.stringify({ disabled }),
+    }),
+  );
+}
+
+export async function setAdminMembership(uid: string, membership: MembershipStatus) {
+  return parseJson<{ ok: boolean; membership: MembershipStatus }>(
+    await fetch(`/api/admin/users/${uid}`, {
+      method: "PATCH",
+      headers: await authHeaders(true),
+      body: JSON.stringify({ membership }),
+    }),
+  );
+}
+
+export async function fetchAdminOverview() {
+  return parseJson<{
+    overview: AdminOverview;
+    members: MemberRow[];
+    courses: Course[];
+    settings: PlatformSettings;
+  }>(await fetch("/api/admin/overview", { headers: await authHeaders() }));
+}
+
+export async function fetchPublicPricing() {
+  return parseJson<{
+    subscriberPriceLabel: string;
+    coachingPriceNote: string;
+    stripeEnabled: boolean;
+  }>(await fetch("/api/platform/public"));
+}
+
+export async function savePlatformSettings(patch: Partial<PlatformSettings>) {
+  return parseJson<PlatformSettings>(
+    await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: await authHeaders(true),
+      body: JSON.stringify(patch),
+    }),
+  );
+}
+
+export async function fetchCourses() {
+  return parseJson<Course[]>(
+    await fetch("/api/courses", { headers: await authHeaders() }),
+  );
+}
+
+export async function fetchCourse(id: string) {
+  return parseJson<Course>(
+    await fetch(`/api/courses/${id}`, { headers: await authHeaders() }),
+  );
+}
+
+export async function saveAdminCourse(course: Partial<Course> & { title: string }, id?: string) {
+  if (id) {
+    return parseJson<Course>(
+      await fetch(`/api/admin/courses/${id}`, {
+        method: "PUT",
+        headers: await authHeaders(true),
+        body: JSON.stringify(course),
+      }),
+    );
+  }
+  return parseJson<Course>(
+    await fetch("/api/admin/courses", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify(course),
+    }),
+  );
+}
+
+export async function seedStarterCourse() {
+  return parseJson<Course>(
+    await fetch("/api/admin/courses", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify({ seed: true }),
+    }),
+  );
+}
+
+export async function deleteAdminCourse(id: string) {
+  return parseJson<{ ok: boolean }>(
+    await fetch(`/api/admin/courses/${id}`, {
+      method: "DELETE",
+      headers: await authHeaders(),
+    }),
+  );
+}
+
+export async function fetchProgress() {
+  return parseJson<LessonProgress[]>(
+    await fetch("/api/progress", { headers: await authHeaders() }),
+  );
+}
+
+export async function setProgress(courseId: string, lessonId: string, completed: boolean) {
+  return parseJson<{ ok: boolean }>(
+    await fetch("/api/progress", {
+      method: "PUT",
+      headers: await authHeaders(true),
+      body: JSON.stringify({ courseId, lessonId, completed }),
+    }),
+  );
+}
+
+export async function fetchCommunityInvite() {
+  return parseJson<{ label: string; note: string; url: string | null }>(
+    await fetch("/api/community/invite", { headers: await authHeaders() }),
+  );
+}
+
+export async function confirmCheckout(sessionId: string) {
+  return parseJson<{ ok: boolean; membership: string }>(
+    await fetch("/api/stripe/confirm", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify({ sessionId }),
+    }),
+  );
+}
+
+export async function startCheckout() {
+  return parseJson<{ url: string }>(
+    await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: await authHeaders(),
+    }),
+  );
+}
+
+export async function openBillingPortal() {
+  return parseJson<{ url: string }>(
+    await fetch("/api/stripe/portal", {
+      method: "POST",
+      headers: await authHeaders(),
+    }),
+  );
+}
+
+export async function fetchCryptoMarkets() {
+  return parseJson<{ coins: Array<{
+    id: string;
+    symbol: string;
+    name: string;
+    image: string;
+    current_price: number;
+    market_cap: number;
+    price_change_percentage_24h: number;
+  }>; error?: string }>(
+    await fetch("/api/markets/crypto", { headers: await authHeaders() }),
+  );
+}
+
+export async function fetchMarketNews() {
+  return parseJson<{
+    items: Array<{
+      id: string;
+      title: string;
+      url: string;
+      source: string;
+      publishedAt: string | null;
+      categories: string;
+    }>;
+    provider?: string;
+    error?: string;
+  }>(await fetch("/api/markets/news", { headers: await authHeaders() }));
+}
+
+export async function searchDex(q: string) {
+  return parseJson<{ pairs: Array<Record<string, unknown>>; error?: string }>(
+    await fetch(`/api/markets/dex?q=${encodeURIComponent(q)}`, {
+      headers: await authHeaders(),
+    }),
+  );
+}
+
+export async function fetchHyperliquid(wallet: string) {
+  return parseJson<{ wallet: string; state: Record<string, unknown> }>(
+    await fetch(`/api/markets/hyperliquid?wallet=${encodeURIComponent(wallet)}`, {
+      headers: await authHeaders(),
     }),
   );
 }

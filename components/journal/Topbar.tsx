@@ -21,6 +21,7 @@ export function Topbar({
   coachName,
   onClearAsUser,
   readOnly,
+  embedded = false,
 }: {
   page: "journal" | "dashboard";
   onPageChange: (page: "journal" | "dashboard") => void;
@@ -33,6 +34,7 @@ export function Topbar({
   coachName?: string | null;
   onClearAsUser?: () => void;
   readOnly?: boolean;
+  embedded?: boolean;
 }) {
   const [clock, setClock] = useState("--:--:--");
   const [utcHour, setUtcHour] = useState(0);
@@ -60,9 +62,11 @@ export function Topbar({
   return (
     <header className="topbar">
       <div className="tb-left">
-        <Link href="/" className="tb-brand" style={{ textDecoration: "none", color: "inherit" }}>
-          Trading<span>Acadamy</span>
-        </Link>
+        {!embedded && (
+          <Link href="/" className="tb-brand" style={{ textDecoration: "none", color: "inherit" }}>
+            Trading<span>Acadamy</span>
+          </Link>
+        )}
         <div className="tb-tabs">
           <button
             type="button"
@@ -79,7 +83,7 @@ export function Topbar({
             <span className="tb-label-full">P&amp;L Dashboard</span>
             <span className="tb-label-short">P&amp;L</span>
           </button>
-          {isAdmin && (
+          {!embedded && isAdmin && (
             <Link href="/admin" className="tb-tab">
               Coaching
             </Link>
@@ -181,7 +185,7 @@ export function Topbar({
               <span className="tb-label-short">Toevoegen</span>
             </button>
           )}
-          <UserMenu isAdmin={isAdmin} />
+          {!embedded && <UserMenu isAdmin={isAdmin} />}
         </div>
       </div>
     </header>

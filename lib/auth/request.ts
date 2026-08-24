@@ -1,5 +1,6 @@
 import { adminAuth } from "@/lib/firebase/admin";
 import { ApiError } from "@/lib/api/errors";
+import { isActiveMembership } from "@/lib/auth/membership";
 import type { AuthUser } from "@/lib/auth/types";
 import { assertBillingActive } from "@/lib/billing/store";
 import {
@@ -11,6 +12,8 @@ import {
 type AuthOptions = {
   /** Skip project-wide billing kill-switch (status/unlock routes). */
   allowWhenBillingExceeded?: boolean;
+  /** Allow signed-in users without an active membership (profile / paywall). */
+  allowWithoutMembership?: boolean;
 };
 
 async function authenticate(req: Request): Promise<AuthUser> {
@@ -49,7 +52,14 @@ export async function requireAuthUser(
   if (!options.allowWhenBillingExceeded) {
     await assertBillingActive();
   }
-  return authenticate(req);
+  const user = await authenticate(req);
+  if (
+    !options.allowWithoutMembership &&
+    !isActiveMembership(user.membership, user.role)
+  ) {
+    throw new ApiError("membership_required", 402);
+  }
+  return user;
 }
 
 export async function requireAdmin(
