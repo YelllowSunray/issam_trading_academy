@@ -4,7 +4,9 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
+  addAdminCloudAccount,
   deleteAdminCourse,
+  fetchAdminCloudAccounts,
   fetchAdminOverview,
   fetchBillingStatus,
   saveAdminCourse,
@@ -13,7 +15,11 @@ import {
   setAdminMembership,
   setAdminUserDisabled,
   setBillingExceeded,
+  syncAdminCloudAccounts,
+  unlinkAdminCloudAccount,
   type BillingLockInfo,
+  type CloudAccountRow,
+  type CloudAccountsPayload,
 } from "@/lib/journal/api-client";
 import type { MembershipStatus } from "@/lib/auth/types";
 import type {
@@ -24,7 +30,7 @@ import type {
 } from "@/lib/platform/types";
 import { hardReplace } from "@/lib/navigation";
 
-type Tab = "overzicht" | "leden" | "cursussen" | "community" | "systeem";
+type Tab = "overzicht" | "leden" | "cloud" | "cursussen" | "community" | "systeem";
 
 function rel(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -50,6 +56,8 @@ export function AdminApp() {
   const [filter, setFilter] = useState<"all" | MembershipStatus>("all");
   const [busyUid, setBusyUid] = useState<string | null>(null);
   const [editing, setEditing] = useState<Course | null>(null);
+  const [cloud, setCloud] = useState<CloudAccountsPayload | null>(null);
+  const [prefillEmail, setPrefillEmail] = useState("");
 
   useEffect(() => {
     if (profile && profile.role !== "admin") {
@@ -58,13 +66,18 @@ export function AdminApp() {
   }, [profile]);
 
   function reload() {
-    return Promise.all([fetchAdminOverview(), fetchBillingStatus()])
-      .then(([data, b]) => {
+    return Promise.all([
+      fetchAdminOverview(),
+      fetchBillingStatus(),
+      fetchAdminCloudAccounts().catch(() => null),
+    ])
+      .then(([data, b, c]) => {
         setOverview(data.overview);
         setMembers(data.members);
         setCourses(data.courses);
         setSettings(data.settings);
         setBilling(b);
+        if (c) setCloud(c);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
   }
@@ -131,6 +144,7 @@ export function AdminApp() {
           [
             ["overzicht", "Overzicht"],
             ["leden", "Leden"],
+            ["cloud", "Cloud MT5"],
             ["cursussen", "Cursussen"],
             ["community", "Community"],
             ["systeem", "Prijzen"],
@@ -320,6 +334,17 @@ export function AdminApp() {
                           className="tb-addbtn"
                           style={{ fontSize: 11.5, padding: "8px 12px" }}
                           onClick={() => {
+                            setPrefillEmail(m.email);
+                            setTab("cloud");
+                          }}
+                        >
+                          Cloud
+                        </button>
+                        <button
+                          type="button"
+                          className="tb-addbtn"
+                          style={{ fontSize: 11.5, padding: "8px 12px" }}
+                          onClick={() => {
                             setCoachTarget({
                               uid: m.uid,
                               displayName: m.displayName,
@@ -361,6 +386,20 @@ export function AdminApp() {
             )}
           </div>
         </section>
+      )}
+
+      {tab === "cloud" && (
+        <CloudTab
+          cloud={cloud}
+          members={members}
+          prefillEmail={prefillEmail}
+          onPrefillUsed={() => setPrefillEmail("")}
+          onReload={async () => {
+            const next = await fetchAdminCloudAccounts();
+            setCloud(next);
+          }}
+          onError={setError}
+        />
       )}
 
       {tab === "cursussen" && (
@@ -605,6 +644,306 @@ function CommunityTab({
         Opslaan
       </button>
     </section>
+  );
+}
+
+function CloudTab({
+  cloud,
+  members,
+  prefillEmail,
+  onPrefillUsed,
+  onReload,
+  onError,
+}: {
+  cloud: CloudAccountsPayload | null;
+  members: MemberRow[];
+  prefillEmail: string;
+  onPrefillUsed: () => void;
+  onReload: () => Promise<void>;
+  onError: (msg: string | null) => void;
+}) {
+  const [mode, setMode] = useState<"register" | "map">("register");
+  const [email, setEmail] = useState(prefillEmail);
+  const [login, setLogin] = useState("");
+  const [server, setServer] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!prefillEmail) return;
+    setEmail(prefillEmail);
+    onPrefillUsed();
+  }, [prefillEmail, onPrefillUsed]);
+
+  async function run(task: () => Promise<string>) {
+    setBusy(true);
+    setInfo(null);
+    onError(null);
+    try {
+      setInfo(await task());
+      await onReload();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Cloud-actie mislukt");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="tj-panel" style={{ marginBottom: 16 }}>
+        <div className="ttl">API2Trade cloud-sync</div>
+        <p className="pl-sub2" style={{ marginBottom: 12 }}>
+          API2Trade is één academy-account (vendor-login). Trades gaan naar
+          het academy-profiel van de student, niet naar het API2Trade-e-mailadres.
+          Issam staat al gekoppeld. Extra studenten vereisen extra API2Trade-seats.
+        </p>
+        {!cloud?.configured && (
+          <div className="pl-empty" style={{ marginBottom: 12 }}>
+            API2TRADE_API_KEY ontbreekt in de server-env.
+          </div>
+        )}
+        {cloud?.vendorError && (
+          <div className="pl-empty" style={{ marginBottom: 12 }}>
+            Vendor: {cloud.vendorError}
+          </div>
+        )}
+        <div className="pl-sub2" style={{ marginBottom: 12 }}>
+          Vendor-login (API2Trade):{" "}
+          {cloud?.seed.vendorOwnerEmail || "cryptozayn@gmail.com"}
+          <br />
+          Eerste journal-eigenaar: {cloud?.seed.email || "ia.lieveldd@gmail.com"}{" "}
+          / login {cloud?.seed.login}
+          <br />
+          Vendor-accounts: {cloud?.vendor.length ?? 0}
+        </div>
+        <button
+          type="button"
+          className="tb-addbtn"
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              const res = await syncAdminCloudAccounts();
+              const ok = res.results.filter((r) => r.ok).length;
+              return `Sync klaar: ${ok}/${res.results.length} ok.`;
+            })
+          }
+        >
+          {busy ? "Bezig…" : "Sync alle accounts"}
+        </button>
+      </section>
+
+      <section className="tj-panel" style={{ marginBottom: 16 }}>
+        <div className="ttl">Student koppelen</div>
+        <div className="plat-chip-row" style={{ marginBottom: 12 }}>
+          <button
+            type="button"
+            className={`plat-chip${mode === "register" ? " active" : ""}`}
+            onClick={() => setMode("register")}
+          >
+            Nieuw via API
+          </button>
+          <button
+            type="button"
+            className={`plat-chip${mode === "map" ? " active" : ""}`}
+            onClick={() => setMode("map")}
+          >
+            Bestaande UUID
+          </button>
+        </div>
+        <div className="tj-field">
+          <div className="lbl">Student</div>
+          <input
+            className="tj-input"
+            list="cloud-member-emails"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="student@email.com"
+          />
+          <datalist id="cloud-member-emails">
+            {members.map((m) => (
+              <option key={m.uid} value={m.email}>
+                {m.displayName}
+              </option>
+            ))}
+          </datalist>
+        </div>
+        <div className="tj-field">
+          <div className="lbl">MT5-login</div>
+          <input
+            className="tj-input"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
+            placeholder="24615704"
+          />
+        </div>
+        {mode === "register" ? (
+          <>
+            <div className="tj-field">
+              <div className="lbl">Broker-server</div>
+              <input
+                className="tj-input"
+                value={server}
+                onChange={(e) => setServer(e.target.value)}
+                placeholder="exacte servernaam, bijv. ICMarketsSC-MT5"
+              />
+            </div>
+            <div className="tj-field">
+              <div className="lbl">Wachtwoord</div>
+              <input
+                className="tj-input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="investor als de broker het toelaat"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="tj-field">
+              <div className="lbl">Naam (optioneel)</div>
+              <input
+                className="tj-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Student · main"
+              />
+            </div>
+          </>
+        ) : (
+          <div className="tj-field">
+            <div className="lbl">API2Trade UUID</div>
+            <input
+              className="tj-input"
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              placeholder="74c175c3-…"
+            />
+          </div>
+        )}
+        {info && (
+          <div className="pl-empty" style={{ marginBottom: 12 }}>
+            {info}
+          </div>
+        )}
+        <button
+          type="button"
+          className="tb-addbtn"
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              const res = await addAdminCloudAccount({
+                mode,
+                email,
+                login,
+                password: mode === "register" ? password : undefined,
+                server: mode === "register" ? server : undefined,
+                name: name || undefined,
+                accountId: mode === "map" ? accountId : undefined,
+              });
+              setPassword("");
+              if (!res.result.ok) {
+                throw new Error(res.result.error || "Koppelen mislukt");
+              }
+              return `Gekoppeld · ${res.result.login} · ${res.result.written} trades.`;
+            })
+          }
+        >
+          {mode === "register" ? "Account aanmaken + sync" : "UUID koppelen + sync"}
+        </button>
+      </section>
+
+      <section className="tj-panel">
+        <div className="ttl">Gekoppelde accounts</div>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Lid</th>
+                <th>MT5</th>
+                <th>Status</th>
+                <th>Sync</th>
+                <th style={{ textAlign: "right" }}>Acties</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(cloud?.accounts || []).map((a: CloudAccountRow) => (
+                <tr key={a.accountId}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>
+                      {a.displayName || a.email}
+                    </div>
+                    <div className="pl-sub2">{a.email}</div>
+                  </td>
+                  <td>
+                    <div>{a.login}</div>
+                    <div className="pl-sub2">{a.server || a.platform}</div>
+                  </td>
+                  <td>
+                    <span
+                      className={`status-chip${a.status === "active" && a.vendorConnected ? " on" : ""}${a.status === "error" ? " off" : ""}`}
+                    >
+                      {a.status}
+                      {a.vendorConnected ? "" : " · niet bij vendor"}
+                    </span>
+                    {a.lastError ? (
+                      <div className="pl-sub2">{a.lastError}</div>
+                    ) : null}
+                  </td>
+                  <td>
+                    {a.lastSyncAt
+                      ? new Date(a.lastSyncAt).toLocaleString("nl-NL")
+                      : "—"}
+                    <div className="pl-sub2">{a.lastTradeCount} trades</div>
+                  </td>
+                  <td>
+                    <div className="admin-table-actions">
+                      <button
+                        type="button"
+                        className="tb-addbtn"
+                        style={{ fontSize: 11.5, padding: "8px 12px" }}
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            const res = await syncAdminCloudAccounts(a.accountId);
+                            const one = res.results[0];
+                            if (!one?.ok) throw new Error(one?.error || "Sync mislukt");
+                            return `Sync ${one.login}: ${one.written} trades.`;
+                          })
+                        }
+                      >
+                        Sync
+                      </button>
+                      {a.source !== "seed" && (
+                        <button
+                          type="button"
+                          className="pl-reset-btn"
+                          disabled={busy}
+                          onClick={() => {
+                            if (!window.confirm(`Ontkoppel ${a.email}?`)) return;
+                            void run(async () => {
+                              await unlinkAdminCloudAccount(a.accountId, false);
+                              return "Ontkoppeld in de app. Account blijft bij API2Trade.";
+                            });
+                          }}
+                        >
+                          Ontkoppel
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!cloud?.accounts.length && (
+            <div className="tj-empty">Nog geen cloud-accounts.</div>
+          )}
+        </div>
+      </section>
+    </>
   );
 }
 

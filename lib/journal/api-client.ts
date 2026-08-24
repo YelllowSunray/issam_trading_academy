@@ -404,6 +404,116 @@ export async function fetchBillingStatus() {
   );
 }
 
+export type CloudAccountRow = {
+  accountId: string;
+  uid: string | null;
+  email: string;
+  displayName: string | null;
+  login: string;
+  server: string | null;
+  name: string | null;
+  platform: string;
+  status: "active" | "error" | "disconnected" | "pending";
+  lastSyncAt: string | null;
+  lastError: string | null;
+  lastTradeCount: number;
+  createdAt: string;
+  source: "seed" | "register" | "map";
+  vendorConnected: boolean;
+};
+
+export type CloudSyncResult = {
+  accountId: string;
+  email: string;
+  login: string;
+  ok: boolean;
+  connected: boolean;
+  written: number;
+  tradeCount: number;
+  error: string | null;
+};
+
+export type CloudAccountsPayload = {
+  configured: boolean;
+  seed: {
+    email: string;
+    vendorOwnerEmail: string;
+    accountId: string;
+    login: string;
+  };
+  vendor: Array<{
+    id: string;
+    accountNumber: string | null;
+    accountServer: string | null;
+    type: string | null;
+    name: string | null;
+  }>;
+  vendorError: string | null;
+  accounts: CloudAccountRow[];
+};
+
+export async function fetchAdminCloudAccounts() {
+  return parseJson<CloudAccountsPayload>(
+    await fetch("/api/admin/cloud-accounts", { headers: await authHeaders() }),
+  );
+}
+
+export async function addAdminCloudAccount(body: {
+  mode: "register" | "map";
+  email: string;
+  login?: string;
+  password?: string;
+  server?: string;
+  name?: string;
+  platform?: "Metatrader 5" | "Metatrader 4";
+  accountId?: string;
+}) {
+  return parseJson<{ ok: boolean; result: CloudSyncResult }>(
+    await fetch("/api/admin/cloud-accounts", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export async function syncAdminCloudAccounts(accountId?: string) {
+  return parseJson<{ ok: boolean; results: CloudSyncResult[] }>(
+    await fetch("/api/admin/cloud-accounts/sync", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify(accountId ? { accountId } : {}),
+    }),
+  );
+}
+
+export async function unlinkAdminCloudAccount(
+  accountId: string,
+  deleteVendor = false,
+) {
+  const q = deleteVendor ? "?vendor=1" : "";
+  return parseJson<{ ok: boolean }>(
+    await fetch(`/api/admin/cloud-accounts/${accountId}${q}`, {
+      method: "DELETE",
+      headers: await authHeaders(),
+    }),
+  );
+}
+
+export async function fetchMyCloudSync() {
+  return parseJson<{
+    accounts: Array<{
+      accountId: string;
+      login: string;
+      server: string | null;
+      name: string | null;
+      status: string;
+      lastSyncAt: string | null;
+      lastError: string | null;
+    }>;
+  }>(await fetch("/api/cloud-sync", { headers: await authHeaders() }));
+}
+
 export async function setBillingExceeded(exceeded: boolean, reason?: string) {
   return parseJson<BillingLockInfo>(
     await fetch("/api/billing", {

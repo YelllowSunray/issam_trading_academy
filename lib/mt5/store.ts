@@ -141,6 +141,43 @@ export async function receiveTrade(
   await touchJournalActivity(uid, syncedAt);
 }
 
+export async function receiveTradesBatch(
+  uid: string,
+  login: string,
+  trades: Array<Mt5Trade & { login?: unknown }>,
+) {
+  const resolved = String(login || "").trim();
+  if (!resolved) throw new Error("login verplicht");
+  await migrateLegacyIfNeeded(uid, resolved);
+  await ensureAccount(uid, resolved);
+
+  const valid = trades.filter((t) => t?.id);
+  for (let i = 0; i < valid.length; i += 400) {
+    const chunk = valid.slice(i, i + 400);
+    const batch = adminDb().batch();
+    for (const trade of chunk) {
+      batch.set(tradesCol(uid, resolved).doc(trade.id), {
+        ...trade,
+        login: trade.login ?? resolved,
+      });
+    }
+    await batch.commit();
+  }
+
+  const countSnap = await tradesCol(uid, resolved).count().get();
+  const syncedAt = new Date().toISOString();
+  await accountsCol(uid).doc(resolved).set(
+    {
+      last_trade_sync: syncedAt,
+      trade_count: countSnap.data().count,
+    },
+    { merge: true },
+  );
+  if (valid.length) await touchJournalActivity(uid, syncedAt);
+  await meter({ writes: Math.max(1, valid.length + 1), reads: 1 });
+  return { written: valid.length, tradeCount: countSnap.data().count };
+}
+
 export async function receiveHeartbeat(
   uid: string,
   data: Record<string, unknown>,

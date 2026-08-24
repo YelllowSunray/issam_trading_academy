@@ -281,6 +281,17 @@ export async function findUserByStripeCustomerId(
   return snap.docs[0].data() as UserProfile;
 }
 
+export async function findUserByEmail(
+  email: string,
+): Promise<UserProfile | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+  const snap = await usersCol().where("email", "==", normalized).limit(1).get();
+  await meter({ reads: Math.max(1, snap.size) });
+  if (snap.empty) return null;
+  return snap.docs[0].data() as UserProfile;
+}
+
 export async function toAuthUser(profile: UserProfile): Promise<AuthUser> {
   return {
     uid: profile.uid,

@@ -10,6 +10,7 @@ import { isActiveMembership, MEMBERSHIP_LABELS } from "@/lib/auth/membership";
 import {
   confirmCheckout,
   fetchMt5SecretMeta,
+  fetchMyCloudSync,
   openBillingPortal,
   rotateMt5Secret,
   startCheckout,
@@ -24,6 +25,9 @@ function SettingsInner() {
   const [plainSecret, setPlainSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [profileInfo, setProfileInfo] = useState<string | null>(null);
+  const [cloudAccounts, setCloudAccounts] = useState<
+    Awaited<ReturnType<typeof fetchMyCloudSync>>["accounts"]
+  >([]);
   const [busy, setBusy] = useState(false);
   const [profileBusy, setProfileBusy] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || "");
@@ -43,6 +47,9 @@ function SettingsInner() {
     fetchMt5SecretMeta()
       .then(setMeta)
       .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+    fetchMyCloudSync()
+      .then((d) => setCloudAccounts(d.accounts))
+      .catch(() => setCloudAccounts([]));
   }, [member]);
 
   useEffect(() => {
@@ -217,6 +224,34 @@ function SettingsInner() {
 
       {member && (
       <>
+      {cloudAccounts.length > 0 && (
+        <div className="tj-panel">
+          <div className="ttl" style={{ marginBottom: 10 }}>
+            CLOUD MT5
+          </div>
+          <p className="pl-sub2" style={{ marginBottom: 12 }}>
+            Dit account synct via de academy-cloud. De EA is dan niet nodig
+            op je telefoon.
+          </p>
+          {cloudAccounts.map((a) => (
+            <div key={a.accountId} style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 600 }}>
+                {a.login}
+                {a.name ? ` · ${a.name}` : ""}
+              </div>
+              <div className="pl-sub2">
+                {a.status}
+                {a.lastSyncAt
+                  ? ` · laatste sync ${new Date(a.lastSyncAt).toLocaleString("nl-NL")}`
+                  : " · nog geen sync"}
+              </div>
+              {a.lastError ? (
+                <div className="pl-sub2">{a.lastError}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="tj-panel">
         <div
           className="ttl"
