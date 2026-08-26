@@ -20,5 +20,7 @@ export const COINGECKO_IDS = [
   "solana",
   "ripple",
   "binancecoin",
+  "dogecoin",
+  "cardano",
   "hyperliquid",
 ];

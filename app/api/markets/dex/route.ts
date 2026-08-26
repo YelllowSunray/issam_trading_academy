@@ -5,7 +5,10 @@ import { requireAuthUser } from "@/lib/auth/request";
 async function searchPairs(q: string) {
   const res = await fetch(
     `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`,
-    { next: { revalidate: 30 }, headers: { Accept: "application/json" } },
+    {
+      next: { revalidate: 30 },
+      headers: { Accept: "application/json", "User-Agent": "TradingAcadamy/1.0" },
+    },
   );
   if (!res.ok) return [];
   const body = (await res.json()) as { pairs?: unknown[] };
@@ -25,7 +28,10 @@ export async function GET(req: Request) {
     if (!pairs.length) {
       const boosts = await fetch(
         "https://api.dexscreener.com/token-boosts/top/v1",
-        { next: { revalidate: 60 }, headers: { Accept: "application/json" } },
+        {
+          next: { revalidate: 60 },
+          headers: { Accept: "application/json", "User-Agent": "TradingAcadamy/1.0" },
+        },
       );
       if (boosts.ok) {
         const rows = (await boosts.json()) as Array<{

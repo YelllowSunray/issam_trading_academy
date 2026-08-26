@@ -5,12 +5,10 @@ export type PlatformNavItem = {
 };
 
 export const PLATFORM_NAV: PlatformNavItem[] = [
-  { href: "/journal", label: "Journal" },
-  { href: "/learn", label: "Cursus" },
-  { href: "/community", label: "Community" },
+  { href: "/journal", label: "Home" },
   { href: "/markets", label: "Markets" },
-  { href: "/tools", label: "Tools" },
-  { href: "/news", label: "Nieuws" },
   { href: "/crypto", label: "Crypto" },
+  { href: "/news", label: "Nieuws" },
+  { href: "/tools", label: "Tools" },
   { href: "/admin", label: "Admin", adminOnly: true },
 ];

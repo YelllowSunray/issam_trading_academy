@@ -17,9 +17,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TradingAcadamy — Journal, cursus & community",
+  title: "TradingAcadamy — Home, markets & crypto",
   description:
-    "Issam's trading academy: journal, MT5-sync, cursussen, Telegram-community, charts en crypto-overzicht.",
+    "Issam's trading academy: journal, MT5-sync, markets, DexScreener crypto en tools.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "48x48" },

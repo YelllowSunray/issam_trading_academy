@@ -1,15 +1,69 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { MemberPage } from "@/components/platform/MemberPage";
 import {
   fetchCryptoMarkets,
+  fetchDexTrending,
   fetchHyperliquid,
   searchDex,
 } from "@/lib/journal/api-client";
+import { sortTrending, type DexTrendingCoin, type DexWindow } from "@/lib/markets/dex-trending";
+
+const WINDOWS: Array<{ id: DexWindow; label: string }> = [
+  { id: "h1", label: "1H" },
+  { id: "h6", label: "6H" },
+  { id: "h24", label: "24H" },
+];
+
+function fmtUsd(value: number | null | undefined, digits = 2) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  if (Math.abs(value) >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
+  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  if (Math.abs(value) >= 1) return `$${value.toLocaleString("en-US", { maximumFractionDigits: digits })}`;
+  return `$${value.toPrecision(4)}`;
+}
+
+function changeOf(coin: DexTrendingCoin, window: DexWindow) {
+  return window === "h1" ? coin.change1h : window === "h6" ? coin.change6h : coin.change24h;
+}
+
+function volOf(coin: DexTrendingCoin, window: DexWindow) {
+  return window === "h1" ? coin.vol1h : window === "h6" ? coin.vol6h : coin.vol24h;
+}
+
+function ChangeChip({ value }: { value: number | null }) {
+  if (value == null) return <span className="dx-chip muted">—</span>;
+  const up = value >= 0;
+  return (
+    <span className={`dx-chip ${up ? "up" : "down"}`}>
+      {up ? "+" : ""}
+      {value.toFixed(2)}%
+    </span>
+  );
+}
+
+function CoinLogo({ src, symbol }: { src?: string | null; symbol: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) {
+    return <span className="dx-logo dx-logo-fallback">{symbol.slice(0, 3)}</span>;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className="dx-logo"
+      src={src}
+      alt=""
+      width={32}
+      height={32}
+      onError={() => setBroken(true)}
+    />
+  );
+}
 
 function CryptoInner() {
-  const [coins, setCoins] = useState<
+  const [majors, setMajors] = useState<
     Array<{
       id: string;
       symbol: string;
@@ -20,23 +74,31 @@ function CryptoInner() {
       price_change_percentage_24h: number;
     }>
   >([]);
+  const [trending, setTrending] = useState<DexTrendingCoin[]>([]);
+  const [window, setWindow] = useState<DexWindow>("h1");
   const [pairs, setPairs] = useState<Array<Record<string, unknown>>>([]);
-  const [q, setQ] = useState("BTC");
+  const [q, setQ] = useState("SOL");
   const [wallet, setWallet] = useState("");
   const [hl, setHl] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCryptoMarkets()
       .then((r) => {
-        setCoins(r.coins || []);
+        setMajors(r.coins || []);
         if (r.error) setError(r.error);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-    searchDex("BTC")
-      .then((r) => setPairs(r.pairs || []))
-      .catch(() => {});
+    fetchDexTrending()
+      .then((r) => {
+        setTrending(r.coins || []);
+        if (r.note) setNote(r.note);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "DexScreener mislukt"));
   }, []);
+
+  const ranked = useMemo(() => sortTrending(trending, window).slice(0, 24), [trending, window]);
 
   async function onDex(e: FormEvent) {
     e.preventDefault();
@@ -63,67 +125,98 @@ function CryptoInner() {
     : [];
 
   return (
-    <div className="journal-main">
-      <p className="tj-eyebrow">CRYPTO</p>
-      <h1 className="tj-title">Overzicht</h1>
-      <p className="pl-sub">
-        Informatief — geen journal en geen trading vanuit het platform.
-        CoinGecko prijzen, DexScreener pairs, Hyperliquid read-only.
-      </p>
+    <div className="journal-main dx-page">
+      <div className="dx-head">
+        <div>
+          <p className="tj-eyebrow">CRYPTO · LIVE FEED</p>
+          <h1 className="tj-title">DexScreener</h1>
+          <p className="pl-sub">
+            Trending pairs per window. Majors met logo. Geen orders vanuit het platform.
+          </p>
+        </div>
+        <div className="dx-windows">
+          {WINDOWS.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              className={`dx-win${window === w.id ? " active" : ""}`}
+              onClick={() => setWindow(w.id)}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {note && <p className="dx-note">{note}</p>}
       {error && <div className="pl-empty">{error}</div>}
 
-      <section className="tj-panel">
-        <div className="ttl">Market caps</div>
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Coin</th>
-                <th>Prijs</th>
-                <th>24u</th>
-                <th>Market cap</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coins.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    {c.name} <span className="pl-sub2">{c.symbol.toUpperCase()}</span>
-                  </td>
-                  <td>${c.current_price?.toLocaleString("en-US")}</td>
-                  <td
-                    style={{
-                      color:
-                        (c.price_change_percentage_24h || 0) >= 0
-                          ? "var(--bull)"
-                          : "var(--bear)",
-                    }}
-                  >
-                    {(c.price_change_percentage_24h || 0).toFixed(2)}%
-                  </td>
-                  <td>${Math.round(c.market_cap / 1e6).toLocaleString("en-US")}M</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <section className="dx-majors">
+        {majors.map((c) => (
+          <article key={c.id} className="dx-major">
+            <CoinLogo src={c.image} symbol={c.symbol.toUpperCase()} />
+            <div>
+              <div className="dx-sym">{c.symbol.toUpperCase()}</div>
+              <div className="dx-name">{c.name}</div>
+            </div>
+            <div className="dx-major-right">
+              <div className="dx-px">{fmtUsd(c.current_price)}</div>
+              <ChangeChip value={c.price_change_percentage_24h} />
+            </div>
+          </article>
+        ))}
       </section>
 
-      <section className="tj-panel">
-        <div className="ttl">DexScreener</div>
+      <section className="tj-panel dx-panel">
+        <div className="dx-panel-head">
+          <div className="ttl">Trending · {WINDOWS.find((w) => w.id === window)?.label}</div>
+          <span className="dx-count">{ranked.length} pairs</span>
+        </div>
+        <div className="dx-grid">
+          {ranked.map((c, i) => (
+            <a
+              key={c.id}
+              className={`dx-card${c.featured ? " featured" : ""}`}
+              href={c.url || `https://dexscreener.com/${c.chain}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <div className="dx-rank">{String(i + 1).padStart(2, "0")}</div>
+              <CoinLogo src={c.image} symbol={c.symbol} />
+              <div className="dx-card-meta">
+                <div className="dx-sym">
+                  {c.symbol}
+                  {c.featured ? <span className="dx-tag">MAJ</span> : null}
+                </div>
+                <div className="dx-name">
+                  {c.chain || "multi"} · {c.name}
+                </div>
+              </div>
+              <div className="dx-card-stats">
+                <div className="dx-px">{fmtUsd(c.priceUsd)}</div>
+                <ChangeChip value={changeOf(c, window)} />
+                <div className="dx-vol">vol {fmtUsd(volOf(c, window), 0)}</div>
+              </div>
+            </a>
+          ))}
+        </div>
+        {!ranked.length && <div className="tj-empty">Nog geen trending data.</div>}
+      </section>
+
+      <section className="tj-panel dx-panel">
+        <div className="ttl">Pair search</div>
         <form onSubmit={(e) => void onDex(e)} className="plat-inline-form">
           <input
             className="tj-input"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="BTC, PEPE, pair…"
+            placeholder="BTC, ETH, SOL, PEPE…"
           />
           <button className="tb-addbtn" type="submit">
-            Zoek
+            Scan
           </button>
         </form>
         <div className="admin-table-wrap" style={{ marginTop: 12 }}>
-          <table className="admin-table">
+          <table className="admin-table dx-table">
             <thead>
               <tr>
                 <th>Pair</th>
@@ -140,15 +233,15 @@ function CryptoInner() {
                 const vol = p.volume as { h24?: number } | undefined;
                 return (
                   <tr key={String(p.pairAddress || i)}>
-                    <td>
+                    <td className="dx-sym">
                       {base?.symbol}/{quote?.symbol}
                     </td>
                     <td>{String(p.priceUsd || "—")}</td>
                     <td>
-                      {liq?.usd != null ? `$${Math.round(liq.usd).toLocaleString("en-US")}` : "—"}
+                      {liq?.usd != null ? fmtUsd(liq.usd, 0) : "—"}
                     </td>
                     <td>
-                      {vol?.h24 != null ? `$${Math.round(vol.h24).toLocaleString("en-US")}` : "—"}
+                      {vol?.h24 != null ? fmtUsd(vol.h24, 0) : "—"}
                     </td>
                   </tr>
                 );
@@ -158,8 +251,8 @@ function CryptoInner() {
         </div>
       </section>
 
-      <section className="tj-panel">
-        <div className="ttl">Hyperliquid (read-only)</div>
+      <section className="tj-panel dx-panel">
+        <div className="ttl">Hyperliquid · read-only</div>
         <form onSubmit={(e) => void onHl(e)} className="plat-inline-form">
           <input
             className="tj-input"
@@ -168,12 +261,12 @@ function CryptoInner() {
             placeholder="0x…"
           />
           <button className="tb-addbtn" type="submit">
-            Haal posities op
+            Positions
           </button>
         </form>
         {hl && (
           <div className="admin-table-wrap" style={{ marginTop: 12 }}>
-            <table className="admin-table">
+            <table className="admin-table dx-table">
               <thead>
                 <tr>
                   <th>Coin</th>
@@ -187,7 +280,7 @@ function CryptoInner() {
                   const pos = row.position || {};
                   return (
                     <tr key={i}>
-                      <td>{String(pos.coin || "—")}</td>
+                      <td className="dx-sym">{String(pos.coin || "—")}</td>
                       <td>{String(pos.szi || "—")}</td>
                       <td>{String(pos.entryPx || "—")}</td>
                       <td>{String(pos.unrealizedPnl || "—")}</td>

@@ -359,6 +359,30 @@ export async function fetchMarketNews() {
   }>(await fetch("/api/markets/news", { headers: await authHeaders() }));
 }
 
+export async function fetchDexTrending() {
+  return parseJson<{
+    coins: Array<{
+      id: string;
+      symbol: string;
+      name: string;
+      image: string;
+      chain: string;
+      url: string;
+      priceUsd: number | null;
+      change1h: number | null;
+      change6h: number | null;
+      change24h: number | null;
+      vol1h: number | null;
+      vol6h: number | null;
+      vol24h: number | null;
+      liquidity: number | null;
+      marketCap: number | null;
+      featured?: boolean;
+    }>;
+    note?: string;
+  }>(await fetch("/api/markets/dex-trending", { headers: await authHeaders() }));
+}
+
 export async function searchDex(q: string) {
   return parseJson<{ pairs: Array<Record<string, unknown>>; error?: string }>(
     await fetch(`/api/markets/dex?q=${encodeURIComponent(q)}`, {

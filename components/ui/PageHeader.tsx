@@ -5,7 +5,7 @@ export function PageHeader({
   title,
   subtitle,
   backHref = "/journal",
-  backLabel = "← Terug naar journal",
+  backLabel = "← Home",
   actions,
 }: {
   title: string;

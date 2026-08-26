@@ -45,12 +45,6 @@ export function UserMenu({ isAdmin }: { isAdmin?: boolean }) {
           <Link href="/settings" className="user-menu-item" onClick={() => setOpen(false)}>
             Profiel &amp; instellingen
           </Link>
-          <Link href="/learn" className="user-menu-item" onClick={() => setOpen(false)}>
-            Cursus
-          </Link>
-          <Link href="/community" className="user-menu-item" onClick={() => setOpen(false)}>
-            Community
-          </Link>
           {admin && (
             <Link href="/admin" className="user-menu-item" onClick={() => setOpen(false)}>
               Admin-overzicht

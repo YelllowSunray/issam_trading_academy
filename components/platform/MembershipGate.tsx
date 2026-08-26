@@ -45,7 +45,7 @@ export function MembershipGate() {
           <div className="pl-value" style={{ margin: "8px 0" }}>
             {price}
           </div>
-          <p className="pl-sub2">Journal, cursus, community, markets — alles.</p>
+          <p className="pl-sub2">Home, markets, crypto en tools — alles.</p>
         </div>
       </div>
       <div className="status-chip" style={{ marginBottom: 18 }}>

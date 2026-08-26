@@ -116,7 +116,7 @@ function SettingsInner() {
         title="Profiel & instellingen"
         subtitle="Pas je naam aan, beheer lidmaatschap en MT5-koppeling."
         backHref="/journal"
-        backLabel="← Platform"
+        backLabel="← Home"
       />
 
       <div className="tj-panel">

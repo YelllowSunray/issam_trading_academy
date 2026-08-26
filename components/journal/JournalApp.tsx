@@ -251,7 +251,7 @@ export function JournalApp() {
           </div>
         )}
         {booting && !bootError ? (
-          <div className="journal-loading">Journal laden…</div>
+          <div className="journal-loading">Home laden…</div>
         ) : page === "journal" ? (
           <JournalView
             trades={enriched}
