@@ -30,6 +30,7 @@ export type ManualTrade = {
   tags: string[];
   notes: string;
   imageUrl: string | null;
+  imageUrls?: string[];
   createdAt?: string;
 };
 
@@ -37,7 +38,25 @@ export type TradeAnnotation = {
   tags: string[];
   notes: string;
   imageUrl: string | null;
+  imageUrls?: string[];
 };
+
+export const TJ_MAX_TRADE_IMAGES = 8;
+
+export function tradeImageUrls(input: {
+  imageUrl?: string | null;
+  imageUrls?: string[] | null;
+}): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of [...(input.imageUrls || []), input.imageUrl || ""]) {
+    const url = (raw || "").trim();
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+}
 
 export type UnifiedTrade = {
   id: string;
@@ -58,6 +77,7 @@ export type UnifiedTrade = {
   tags: string[];
   notes: string;
   imageUrl: string | null;
+  imageUrls: string[];
   _mt5Profit?: number | null;
   r?: number | null;
   eur?: number | null;
@@ -71,6 +91,7 @@ export type Mt5AccountSummary = {
   connected: boolean;
   trade_count: number;
   last_heartbeat: string | null;
+  last_sync?: string | null;
 };
 
 export type Mt5Status = {

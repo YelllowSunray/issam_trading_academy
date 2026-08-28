@@ -20,12 +20,13 @@ import {
 } from "@/lib/journal/api-client";
 import { AiCoach } from "./AiCoach";
 import { enrichTrades, mergeTrades } from "@/lib/journal/compute";
-import type {
-  ManualTrade,
-  Mt5AccountSummary,
-  Mt5Status,
-  Mt5Trade,
-  TradeAnnotation,
+import {
+  tradeImageUrls,
+  type ManualTrade,
+  type Mt5AccountSummary,
+  type Mt5Status,
+  type Mt5Trade,
+  type TradeAnnotation,
 } from "@/lib/journal/types";
 import { AnnotateModal } from "./AnnotateModal";
 import { JournalView } from "./JournalView";
@@ -62,7 +63,10 @@ export function JournalApp() {
   });
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [annotateId, setAnnotateId] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{
+    urls: string[];
+    index: number;
+  } | null>(null);
   const [debriefs, setDebriefs] = useState<Record<string, string>>({});
   const [debriefBusy, setDebriefBusy] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -70,6 +74,7 @@ export function JournalApp() {
   const lastSyncRef = useRef<string | null>(null);
   const lastTradeCountRef = useRef<number>(0);
   const lastAccountsFetchRef = useRef(0);
+  const lastAccountsSigRef = useRef("");
   const asUserRef = useRef(asUser);
   asUserRef.current = asUser;
   const accountsRef = useRef(accounts);
@@ -111,27 +116,35 @@ export function JournalApp() {
           full || now - lastAccountsFetchRef.current >= MT5_ACCOUNTS_POLL_MS;
 
         let list = accountsRef.current;
-        let wanted = login;
+        const richestOf = (rows: Mt5AccountSummary[]) =>
+          [...rows].sort(
+            (a, b) => (b.trade_count || 0) - (a.trade_count || 0),
+          )[0];
+        // Status still needs a concrete login. Keep "Alle accounts" (null)
+        // selected — do not steal the dropdown on poll.
+        let wanted: string | null =
+          login ?? richestOf(list)?.login ?? list[0]?.login ?? null;
         if (shouldRefreshAccounts) {
           list = await fetchAccounts();
           if (asUserRef.current !== uid) return;
           lastAccountsFetchRef.current = now;
           setAccounts(list);
-          const preferred =
-            login && list.some((a) => String(a.login) === String(login))
+          const richest = richestOf(list);
+          if (login != null) {
+            const preferred = list.some((a) => String(a.login) === String(login))
               ? login
               : null;
-          const richest = [...list].sort(
-            (a, b) => (b.trade_count || 0) - (a.trade_count || 0),
-          )[0];
-          const preferredRow = list.find(
-            (a) => String(a.login) === String(preferred),
-          );
-          wanted =
-            preferredRow && (preferredRow.trade_count || 0) > 0
-              ? preferred
-              : richest?.login || preferred || list[0]?.login || null;
-          if (wanted && wanted !== login) setSelectedLogin(wanted);
+            const preferredRow = list.find(
+              (a) => String(a.login) === String(preferred),
+            );
+            wanted =
+              preferredRow && (preferredRow.trade_count || 0) > 0
+                ? preferred
+                : richest?.login || preferred || list[0]?.login || null;
+            if (wanted && wanted !== login) setSelectedLogin(wanted);
+          } else {
+            wanted = richest?.login || list[0]?.login || null;
+          }
         }
 
         const s = await fetchStatus(wanted);
@@ -149,14 +162,21 @@ export function JournalApp() {
                   currency: s.account?.currency ?? a.currency,
                   trade_count: s.trade_count,
                   last_heartbeat: s.last_heartbeat,
+                  last_sync: s.last_sync,
                 }
               : a,
           ),
         );
 
+        const accountsSig = list
+          .map((a) => `${a.login}:${a.last_sync || ""}:${a.trade_count || 0}`)
+          .sort()
+          .join("|");
         const syncChanged = s.last_sync !== lastSyncRef.current;
         const countChanged = s.trade_count !== lastTradeCountRef.current;
-        if (full || syncChanged || countChanged) {
+        const multiChanged =
+          login == null && accountsSig !== lastAccountsSigRef.current;
+        if (full || syncChanged || countChanged || multiChanged) {
           const chunks = await Promise.all(
             (list.length ? list : [{ login: wanted }]).map((a) =>
               a.login ? fetchMt5Trades(a.login) : Promise.resolve([]),
@@ -166,6 +186,7 @@ export function JournalApp() {
           setMt5Trades(chunks.flat());
           lastSyncRef.current = s.last_sync;
           lastTradeCountRef.current = s.trade_count;
+          lastAccountsSigRef.current = accountsSig;
         }
       } catch {
         if (asUserRef.current !== uid) return;
@@ -189,6 +210,7 @@ export function JournalApp() {
     lastSyncRef.current = null;
     lastTradeCountRef.current = -1;
     lastAccountsFetchRef.current = 0;
+    lastAccountsSigRef.current = "";
     setDebriefs({});
     (async () => {
       try {
@@ -226,6 +248,10 @@ export function JournalApp() {
         setStatus(s);
         lastSyncRef.current = s.last_sync;
         lastTradeCountRef.current = s.trade_count;
+        lastAccountsSigRef.current = list
+          .map((a) => `${a.login}:${a.last_sync || ""}:${a.trade_count || 0}`)
+          .sort()
+          .join("|");
       } catch (err) {
         if (!cancelled) {
           setManualTrades([]);
@@ -380,7 +406,9 @@ export function JournalApp() {
                 if (readOnly) return;
                 setAnnotateId(id);
               }}
-              onLightbox={setLightbox}
+              onLightbox={(urls, index = 0) => {
+                if (urls.length) setLightbox({ urls, index });
+              }}
             />
           </>
         ) : (
@@ -392,10 +420,10 @@ export function JournalApp() {
         <TradeModal
           onClose={() => setShowTradeModal(false)}
           onSave={async (trade) => {
-            let imageUrl: string | null = null;
-            if (trade.imageDataUrl) {
-              const uploaded = await uploadImage(trade.imageDataUrl);
-              imageUrl = uploaded.imageUrl;
+            const imageUrls: string[] = [];
+            for (const dataUrl of trade.imageDataUrls) {
+              const uploaded = await uploadImage(dataUrl);
+              imageUrls.push(uploaded.imageUrl);
             }
             await createManualTrade({
               date: trade.date,
@@ -407,7 +435,8 @@ export function JournalApp() {
               riskEur: trade.riskEur,
               tags: trade.tags,
               notes: trade.notes,
-              imageUrl,
+              imageUrl: imageUrls[0] || null,
+              imageUrls,
             });
             setShowTradeModal(false);
             await refreshJournal();
@@ -423,23 +452,25 @@ export function JournalApp() {
               tags: [],
               notes: "",
               imageUrl: null,
+              imageUrls: [],
             }
           }
           onClose={() => setAnnotateId(null)}
           onSave={async (ann) => {
-            let imageUrl = ann.imageUrl || null;
-            if (ann.imageDataUrl !== undefined) {
-              if (ann.imageDataUrl) {
-                const uploaded = await uploadImage(ann.imageDataUrl);
-                imageUrl = uploaded.imageUrl;
+            const imageUrls: string[] = [];
+            for (const src of tradeImageUrls(ann)) {
+              if (src.startsWith("data:")) {
+                const uploaded = await uploadImage(src);
+                imageUrls.push(uploaded.imageUrl);
               } else {
-                imageUrl = null;
+                imageUrls.push(src);
               }
             }
             await saveAnnotation(annotateTrade.id, {
               tags: ann.tags,
               notes: ann.notes,
-              imageUrl,
+              imageUrl: imageUrls[0] || null,
+              imageUrls,
             });
             setAnnotateId(null);
             await refreshJournal();
@@ -448,7 +479,14 @@ export function JournalApp() {
       )}
 
       {lightbox && (
-        <Lightbox src={lightbox} onClose={() => setLightbox(null)} />
+        <Lightbox
+          urls={lightbox.urls}
+          index={lightbox.index}
+          onIndex={(index) =>
+            setLightbox((prev) => (prev ? { ...prev, index } : prev))
+          }
+          onClose={() => setLightbox(null)}
+        />
       )}
     </div>
   );

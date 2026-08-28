@@ -2,10 +2,11 @@ import { randomUUID } from "crypto";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminBucket, adminDb } from "@/lib/firebase/admin";
 import { touchJournalActivity, userRef } from "@/lib/users/store";
-import type {
-  AppSettings,
-  ManualTrade,
-  TradeAnnotation,
+import {
+  tradeImageUrls,
+  type AppSettings,
+  type ManualTrade,
+  type TradeAnnotation,
 } from "@/lib/journal/types";
 
 async function meter(delta: Parameters<typeof trackUsage>[0]) {
@@ -31,7 +32,11 @@ function settingsRef(uid: string) {
 export async function listManualTrades(uid: string): Promise<ManualTrade[]> {
   const snap = await manualCol(uid).get();
   await meter({ reads: Math.max(1, snap.size) });
-  const trades = snap.docs.map((d) => d.data() as ManualTrade);
+  const trades = snap.docs.map((d) => {
+    const data = d.data() as ManualTrade;
+    const imageUrls = tradeImageUrls(data);
+    return { ...data, imageUrl: imageUrls[0] || null, imageUrls };
+  });
   trades.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   return trades;
 }
@@ -46,7 +51,8 @@ export async function createManualTrade(
     id,
     tags: input.tags || [],
     notes: input.notes || "",
-    imageUrl: input.imageUrl || null,
+    imageUrl: tradeImageUrls(input)[0] || null,
+    imageUrls: tradeImageUrls(input),
     createdAt: new Date().toISOString(),
   };
   await manualCol(uid).doc(id).set(trade);
@@ -67,12 +73,14 @@ export async function getAnnotation(
 ): Promise<TradeAnnotation> {
   const snap = await annotationsCol(uid).doc(tradeId).get();
   await meter({ reads: 1 });
-  if (!snap.exists) return { tags: [], notes: "", imageUrl: null };
+  if (!snap.exists) return { tags: [], notes: "", imageUrl: null, imageUrls: [] };
   const data = snap.data() as TradeAnnotation;
+  const imageUrls = tradeImageUrls(data);
   return {
     tags: data.tags || [],
     notes: data.notes || "",
-    imageUrl: data.imageUrl || null,
+    imageUrl: imageUrls[0] || null,
+    imageUrls,
   };
 }
 
@@ -84,10 +92,12 @@ export async function listAnnotations(
   const out: Record<string, TradeAnnotation> = {};
   snap.docs.forEach((d) => {
     const data = d.data() as TradeAnnotation;
+    const imageUrls = tradeImageUrls(data);
     out[d.id] = {
       tags: data.tags || [],
       notes: data.notes || "",
-      imageUrl: data.imageUrl || null,
+      imageUrl: imageUrls[0] || null,
+      imageUrls,
     };
   });
   return out;
@@ -98,10 +108,12 @@ export async function upsertAnnotation(
   tradeId: string,
   ann: TradeAnnotation,
 ): Promise<TradeAnnotation> {
+  const imageUrls = tradeImageUrls(ann);
   const cleaned: TradeAnnotation = {
     tags: ann.tags || [],
     notes: ann.notes || "",
-    imageUrl: ann.imageUrl || null,
+    imageUrl: imageUrls[0] || null,
+    imageUrls,
   };
   await annotationsCol(uid).doc(tradeId).set(cleaned, { merge: true });
   await meter({ writes: 1 });

@@ -14,6 +14,7 @@ export type CloudAccountRecord = {
   platform: string;
   status: CloudAccountStatus;
   lastSyncAt: string | null;
+  lastGhostSweepAt?: string | null;
   lastError: string | null;
   lastTradeCount: number;
   createdAt: string;

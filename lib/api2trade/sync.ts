@@ -1,5 +1,9 @@
 import { ApiError } from "@/lib/api/errors";
-import { receiveHeartbeat, receiveTradesBatch } from "@/lib/mt5/store";
+import {
+  listOpenTrades,
+  receiveHeartbeat,
+  receiveTradesBatch,
+} from "@/lib/mt5/store";
 import { findUserByEmail } from "@/lib/users/store";
 import {
   checkConnect,
@@ -21,7 +25,10 @@ import {
 } from "./store";
 import type { CloudAccountRecord, CloudSyncResult } from "./types";
 
-const LOOKBACK_MS = 120 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const FIRST_SYNC_LOOKBACK_MS = 10 * 365 * DAY_MS;
+const INCREMENTAL_OVERLAP_MS = 2 * DAY_MS;
+const STALE_SYNC_LOOKBACK_MS = 400 * DAY_MS;
 
 function isoNoMs(d: Date) {
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -70,23 +77,53 @@ export async function syncCloudAccount(
     const from = new Date(
       target.lastSyncAt
         ? Math.max(
-            Date.parse(target.lastSyncAt) - 2 * 24 * 60 * 60 * 1000,
-            Date.now() - LOOKBACK_MS,
+            Date.parse(target.lastSyncAt) - INCREMENTAL_OVERLAP_MS,
+            Date.now() - STALE_SYNC_LOOKBACK_MS,
           )
-        : Date.now() - LOOKBACK_MS,
+        : Date.now() - FIRST_SYNC_LOOKBACK_MS,
     );
     // API2Trade filters OrderHistory on broker-local close times, which can
     // sit hours ahead of UTC. A `to=now` window then drops today's closes.
     const to = new Date(Date.now() + 36 * 60 * 60 * 1000);
-    const [history, opened] = await Promise.all([
+    const [history, openedResult] = await Promise.all([
       getOrderHistory(target.accountId, isoNoMs(from), isoNoMs(to)),
       getOpenPositions(target.accountId),
     ]);
+    const opened = openedResult.orders;
     const closed = mapHistoryToTrades(history, login);
     const live = mapOpenedToTrades(opened, login);
     const seen = new Set(closed.map((t) => t.id));
     const trades = [...closed, ...live.filter((t) => !seen.has(t.id))];
-    const batch = await receiveTradesBatch(uid, login, trades);
+    let batch = await receiveTradesBatch(uid, login, trades);
+
+    let sweptGhosts = false;
+    const windowAlreadyWide =
+      Date.now() - from.getTime() >= STALE_SYNC_LOOKBACK_MS - DAY_MS;
+    const lastSweep = target.lastGhostSweepAt
+      ? Date.parse(target.lastGhostSweepAt)
+      : 0;
+    const sweepDue = !lastSweep || Date.now() - lastSweep > 12 * 60 * 60 * 1000;
+    if (openedResult.fetched && !windowAlreadyWide && sweepDue) {
+      const liveIds = new Set(live.map((t) => t.id));
+      const ghosts = (await listOpenTrades(uid, login)).filter(
+        (t) => t.id && !liveIds.has(t.id),
+      );
+      if (ghosts.length) {
+        const extraHist = await getOrderHistory(
+          target.accountId,
+          isoNoMs(new Date(Date.now() - STALE_SYNC_LOOKBACK_MS)),
+          isoNoMs(to),
+        );
+        const ghostIds = new Set(ghosts.map((t) => t.id));
+        const extraClosed = mapHistoryToTrades(extraHist, login).filter(
+          (t) => ghostIds.has(t.id) && (t.exit != null || t.exitTime != null),
+        );
+        if (extraClosed.length) {
+          batch = await receiveTradesBatch(uid, login, extraClosed);
+        }
+        sweptGhosts = true;
+      }
+    }
     await receiveHeartbeat(uid, {
       login,
       name: summary.name || target.name,
@@ -107,6 +144,7 @@ export async function syncCloudAccount(
       lastSyncAt: now,
       lastError: null,
       lastTradeCount: batch.tradeCount,
+      ...(sweptGhosts ? { lastGhostSweepAt: now } : {}),
     });
 
     return {

@@ -150,18 +150,78 @@ function historyList(raw: unknown): HistoryOrder[] {
   return [];
 }
 
-export async function getOpenPositions(accountId: string): Promise<HistoryOrder[]> {
+export async function getOpenPositions(accountId: string): Promise<{
+  orders: HistoryOrder[];
+  fetched: boolean;
+}> {
+  let fetched = false;
   for (const path of ["/OpenedOrders", "/Positions"]) {
     try {
       const raw = await a2tFetch<unknown>(path, { query: { id: accountId } });
+      fetched = true;
       const list = historyList(raw);
-      if (list.length) return list;
-      if (Array.isArray(raw)) return raw as HistoryOrder[];
+      if (list.length) return { orders: list, fetched: true };
+      if (Array.isArray(raw) && raw.length) {
+        return { orders: raw as HistoryOrder[], fetched: true };
+      }
     } catch {
       /* try next endpoint */
     }
   }
-  return [];
+  return { orders: [], fetched };
+}
+
+const HISTORY_PAGE = 100;
+const HISTORY_MAX_PAGES = 50;
+
+function historyTotal(raw: unknown): number | null {
+  const rec = asRecord(raw);
+  if (!rec) return null;
+  return num(rec.total ?? rec.Total ?? rec.count ?? rec.totalCount);
+}
+
+function historyKey(order: HistoryOrder): string {
+  return [
+    order.ticket ?? order.order ?? order.id ?? "",
+    order.positionTicket ?? order.positionId ?? "",
+    order.closeTime ?? order.closeTimestampUTC ?? "",
+    order.symbol ?? "",
+    order.closePrice ?? "",
+  ].join("|");
+}
+
+function mergeHistory(into: HistoryOrder[], extra: HistoryOrder[]) {
+  const seen = new Set(into.map(historyKey));
+  for (const order of extra) {
+    const key = historyKey(order);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    into.push(order);
+  }
+  return into;
+}
+
+async function fetchHistoryPage(
+  accountId: string,
+  from: string,
+  to: string,
+  pageNumber: number,
+  requestAgain: boolean,
+) {
+  return a2tFetch<unknown>("/OrderHistoryPagination", {
+    query: {
+      id: accountId,
+      from,
+      to,
+      dateFrom: from,
+      dateTo: to,
+      ordersPerPage: HISTORY_PAGE,
+      pageNumber,
+      requestAgain,
+      ignoreDepositWithdraw: true,
+      sort: "CloseTime",
+    },
+  });
 }
 
 export async function getOrderHistory(
@@ -172,25 +232,37 @@ export async function getOrderHistory(
   const from = fromIso.replace(/\.\d{3}Z$/, "").replace(/Z$/, "");
   const to = toIso.replace(/\.\d{3}Z$/, "").replace(/Z$/, "");
 
-  const raw = await a2tFetch<unknown>("/OrderHistory", {
-    query: { id: accountId, from, to, dateFrom: from, dateTo: to },
-  });
-  const full = historyList(raw);
-  if (full.length) return full;
+  let merged: HistoryOrder[] = [];
+  try {
+    const raw = await a2tFetch<unknown>("/OrderHistory", {
+      query: { id: accountId, from, to, dateFrom: from, dateTo: to },
+    });
+    merged = historyList(raw);
+  } catch {
+    /* paginated fallback below */
+  }
 
-  const first = await a2tFetch<unknown>("/OrderHistoryPagination", {
-    query: {
-      id: accountId,
-      from,
-      to,
-      ordersPerPage: 100,
-      pageNumber: 0,
-      requestAgain: true,
-      ignoreDepositWithdraw: true,
-      sort: "CloseTime",
-    },
-  });
-  return historyList(first);
+  try {
+    const first = await fetchHistoryPage(accountId, from, to, 0, true);
+    const firstList = historyList(first);
+    const total = historyTotal(first);
+    mergeHistory(merged, firstList);
+
+    if (total != null && merged.length >= total) return merged;
+    if (!firstList.length || firstList.length < HISTORY_PAGE) return merged;
+
+    for (let page = 1; page < HISTORY_MAX_PAGES; page++) {
+      const next = await fetchHistoryPage(accountId, from, to, page, false);
+      const list = historyList(next);
+      if (!list.length) break;
+      mergeHistory(merged, list);
+      if (total != null && merged.length >= total) break;
+      if (list.length < HISTORY_PAGE) break;
+    }
+  } catch {
+    /* keep whatever OrderHistory already returned */
+  }
+  return merged;
 }
 
 export async function registerAccount(input: {

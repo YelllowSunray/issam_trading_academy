@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { TJ_SMC_TAGS } from "@/lib/journal/constants";
 import { fmtEur } from "@/lib/journal/format";
-import type { Mt5Trade, TradeAnnotation } from "@/lib/journal/types";
+import { tradeImageUrls, type Mt5Trade, type TradeAnnotation } from "@/lib/journal/types";
 import { ImageField } from "./ImageField";
 import { IconX } from "./icons";
 
@@ -16,11 +16,11 @@ export function AnnotateModal({
   trade: Mt5Trade;
   initial: TradeAnnotation;
   onClose: () => void;
-  onSave: (ann: TradeAnnotation & { imageDataUrl?: string | null }) => Promise<void>;
+  onSave: (ann: TradeAnnotation) => Promise<void>;
 }) {
   const [tags, setTags] = useState(initial.tags || []);
   const [notes, setNotes] = useState(initial.notes || "");
-  const [image, setImage] = useState<string | null>(initial.imageUrl || null);
+  const [images, setImages] = useState(() => tradeImageUrls(initial));
   const [saving, setSaving] = useState(false);
   const eurTxt =
     trade.profitEur != null ? fmtEur(trade.profitEur) : "—";
@@ -85,8 +85,8 @@ export function AnnotateModal({
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Setup screenshot</div>
-          <ImageField image={image} onChange={setImage} />
+          <div className="lbl">Setup screenshots</div>
+          <ImageField images={images} onChange={setImages} />
         </div>
 
         <button
@@ -96,12 +96,11 @@ export function AnnotateModal({
           onClick={async () => {
             setSaving(true);
             try {
-              const imageChanged = image !== initial.imageUrl;
               await onSave({
                 tags,
                 notes,
-                imageUrl: initial.imageUrl,
-                imageDataUrl: imageChanged ? image : undefined,
+                imageUrl: images[0] || null,
+                imageUrls: images,
               });
             } finally {
               setSaving(false);

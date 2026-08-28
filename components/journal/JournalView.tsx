@@ -28,7 +28,7 @@ export function JournalView({
   trades: UnifiedTrade[];
   onDelete: (id: string) => void;
   onAnnotate: (id: string) => void;
-  onLightbox: (src: string) => void;
+  onLightbox: (urls: string[], index?: number) => void;
   onDebrief?: (id: string) => void;
   onOpenTrade?: (id: string) => void;
   debriefs?: Record<string, string>;
@@ -172,13 +172,14 @@ export function JournalView({
                   <div key={t.id}>
                     <div
                       className="tj-row"
-                      onClick={() =>
-                        setExpanded((prev) => {
-                          const next = !prev[t.id];
-                          if (next) onOpenTrade?.(t.id);
-                          return { ...prev, [t.id]: next };
-                        })
-                      }
+                      onClick={() => {
+                        const opening = !expanded[t.id];
+                        setExpanded((prev) => ({
+                          ...prev,
+                          [t.id]: !prev[t.id],
+                        }));
+                        if (opening) onOpenTrade?.(t.id);
+                      }}
                     >
                       <div className="icon">{icon}</div>
                       <div className="dt">{t.date}</div>
@@ -200,17 +201,23 @@ export function JournalView({
                         {tjFmtPrice(t.entry)}{" "}
                         <span className="arrow">→</span> {tjFmtPrice(t.exit)}
                       </div>
-                      {t.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          className="thumb"
-                          src={t.imageUrl}
-                          alt=""
+                      {(t.imageUrls || []).length ? (
+                        <button
+                          type="button"
+                          className="thumb-wrap"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onLightbox(t.imageUrl!);
+                            onLightbox(t.imageUrls, 0);
                           }}
-                        />
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img className="thumb" src={t.imageUrls[0]} alt="" />
+                          {t.imageUrls.length > 1 ? (
+                            <span className="thumb-count">
+                              +{t.imageUrls.length - 1}
+                            </span>
+                          ) : null}
+                        </button>
                       ) : (
                         <div style={{ width: 34, flexShrink: 0 }} />
                       )}
@@ -258,6 +265,7 @@ export function JournalView({
                         debrief={debriefs?.[t.id]}
                         debriefBusy={debriefBusy === t.id}
                         onDebrief={onDebrief ? () => onDebrief(t.id) : undefined}
+                        onLightbox={onLightbox}
                       />
                     )}
                   </div>
@@ -314,11 +322,13 @@ function TradeDetail({
   debrief,
   debriefBusy,
   onDebrief,
+  onLightbox,
 }: {
   trade: UnifiedTrade;
   debrief?: string;
   debriefBusy?: boolean;
   onDebrief?: () => void;
+  onLightbox: (urls: string[], index?: number) => void;
 }) {
   const rows: [string, string | number][] = [
     ["Entry", t.entry ?? "—"],
@@ -332,6 +342,8 @@ function TradeDetail({
   if (t.swap != null) rows.push(["Swap", fmtEur(t.swap)]);
   if (t.notes) rows.push(["Notitie", t.notes]);
 
+  const shots = t.imageUrls || [];
+
   return (
     <div className="tj-detail">
       {rows.map(([k, v]) => (
@@ -340,6 +352,24 @@ function TradeDetail({
           <span className="v">{v}</span>
         </div>
       ))}
+      {shots.length ? (
+        <div className="tj-detail-shots">
+          {shots.map((src, i) => (
+            <button
+              key={`${src}-${i}`}
+              type="button"
+              className="tj-detail-shot"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLightbox(shots, i);
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`Screenshot ${i + 1}`} />
+            </button>
+          ))}
+        </div>
+      ) : null}
       {(onDebrief || debrief || debriefBusy) && (
         <div className="ai-debrief">
           {onDebrief ? (

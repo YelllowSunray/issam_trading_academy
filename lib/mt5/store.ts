@@ -211,6 +211,7 @@ export async function listAccounts(uid: string): Promise<Mt5AccountSummary[]> {
       connected: isConnected(data.last_heartbeat),
       trade_count: tradeCount,
       last_heartbeat: data.last_heartbeat,
+      last_sync: data.last_trade_sync,
     });
   }
 
@@ -237,6 +238,32 @@ export async function listTrades(
   const trades = snap.docs.map((d) => d.data() as Mt5Trade);
   trades.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
   return trades;
+}
+
+function isOpenTrade(trade: Mt5Trade) {
+  return trade.exit == null && !trade.exitTime;
+}
+
+export async function listOpenTrades(
+  uid: string,
+  login: string,
+): Promise<Mt5Trade[]> {
+  const resolved = String(login || "").trim();
+  if (!resolved) return [];
+  const col = tradesCol(uid, resolved);
+  try {
+    const snap = await col.where("exit", "==", null).get();
+    await meter({ reads: Math.max(1, snap.size) });
+    return snap.docs
+      .map((d) => d.data() as Mt5Trade)
+      .filter(isOpenTrade);
+  } catch {
+    const snap = await col.get();
+    await meter({ reads: Math.max(1, snap.size) });
+    return snap.docs
+      .map((d) => d.data() as Mt5Trade)
+      .filter(isOpenTrade);
+  }
 }
 
 export async function getStatus(

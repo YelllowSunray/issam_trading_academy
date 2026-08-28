@@ -1,10 +1,11 @@
 import { TJ_SESSIONS } from "./constants";
-import type {
-  ManualTrade,
-  Mt5Trade,
-  SessionDef,
-  TradeAnnotation,
-  UnifiedTrade,
+import {
+  tradeImageUrls,
+  type ManualTrade,
+  type Mt5Trade,
+  type SessionDef,
+  type TradeAnnotation,
+  type UnifiedTrade,
 } from "./types";
 
 export function tjIsSessionActive(s: SessionDef, h: number) {
@@ -54,11 +55,13 @@ export function mergeTrades(
     riskEur: t.riskEur,
     tags: t.tags || [],
     notes: t.notes || "",
-    imageUrl: t.imageUrl || null,
+    imageUrl: tradeImageUrls(t)[0] || null,
+    imageUrls: tradeImageUrls(t),
   }));
 
   const mt5Mapped: UnifiedTrade[] = mt5.map((t) => {
     const ann = annotations[t.id] || { tags: [], notes: "", imageUrl: null };
+    const images = tradeImageUrls(ann);
     return {
       id: t.id,
       source: "mt5",
@@ -77,7 +80,8 @@ export function mergeTrades(
       login: t.login,
       tags: ann.tags || [],
       notes: ann.notes || "",
-      imageUrl: ann.imageUrl || null,
+      imageUrl: images[0] || null,
+      imageUrls: images,
       _mt5Profit: t.profitEur,
     };
   });

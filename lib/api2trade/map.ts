@@ -106,7 +106,7 @@ export function mapHistoryToTrades(
   orders: HistoryOrder[],
   login: string,
 ): Mt5Trade[] {
-  const out: Mt5Trade[] = [];
+  const byId = new Map<string, Mt5Trade>();
   for (const order of orders) {
     if (isBalanceOp(order)) continue;
     const direction = directionOf(order);
@@ -134,8 +134,8 @@ export function mapHistoryToTrades(
     const swap = num(order.swap) ?? 0;
     const commission = num(order.commission) ?? 0;
     const fee = num(order.fee) ?? 0;
-
-    out.push({
+    const volume = num(order.closeLots ?? order.lots ?? order.volume);
+    const mapped: Mt5Trade = {
       id,
       date: dateOnly(closeTime || openTime, order.closeTime ?? order.openTime),
       instrument: str(order.symbol) || "Overig",
@@ -143,16 +143,35 @@ export function mapHistoryToTrades(
       entry,
       exit,
       sl: sl && sl > 0 ? sl : null,
-      volume: num(order.closeLots ?? order.lots ?? order.volume),
+      volume,
       profitEur: profit + swap + commission + fee,
       entryTime: openTime,
       exitTime: closeTime,
       commission,
       swap,
       login,
-    });
+    };
+    const existing = byId.get(id);
+    if (!existing) {
+      byId.set(id, mapped);
+      continue;
+    }
+    existing.profitEur = (existing.profitEur ?? 0) + (mapped.profitEur ?? 0);
+    existing.commission = (existing.commission ?? 0) + commission;
+    existing.swap = (existing.swap ?? 0) + swap;
+    existing.volume = (existing.volume ?? 0) + (volume ?? 0);
+    if ((closeTime ?? 0) >= (existing.exitTime ?? 0)) {
+      existing.exit = exit ?? existing.exit;
+      existing.exitTime = closeTime ?? existing.exitTime;
+      existing.date = mapped.date;
+      existing.entry = entry ?? existing.entry;
+      existing.entryTime = openTime ?? existing.entryTime;
+      existing.sl = mapped.sl ?? existing.sl;
+      existing.instrument = mapped.instrument;
+      existing.direction = direction;
+    }
   }
-  return out;
+  return [...byId.values()];
 }
 
 export function mapOpenedToTrades(

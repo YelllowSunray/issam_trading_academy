@@ -16,7 +16,7 @@ type FormState = {
   riskEur: string;
   tags: string[];
   notes: string;
-  image: string | null;
+  images: string[];
 };
 
 function defaultForm(): FormState {
@@ -30,7 +30,7 @@ function defaultForm(): FormState {
     riskEur: "",
     tags: [],
     notes: "",
-    image: null,
+    images: [],
   };
 }
 
@@ -49,7 +49,7 @@ export function TradeModal({
     riskEur: string | null;
     tags: string[];
     notes: string;
-    imageDataUrl: string | null;
+    imageDataUrls: string[];
   }) => Promise<void>;
 }) {
   const [form, setForm] = useState(defaultForm);
@@ -205,10 +205,10 @@ export function TradeModal({
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Setup screenshot</div>
+          <div className="lbl">Setup screenshots</div>
           <ImageField
-            image={form.image}
-            onChange={(image) => setForm((f) => ({ ...f, image }))}
+            images={form.images}
+            onChange={(images) => setForm((f) => ({ ...f, images }))}
           />
         </div>
 
@@ -230,7 +230,7 @@ export function TradeModal({
                 riskEur: form.riskEur || null,
                 tags: form.tags,
                 notes: form.notes,
-                imageDataUrl: form.image,
+                imageDataUrls: form.images,
               });
             } finally {
               setSaving(false);
