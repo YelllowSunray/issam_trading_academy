@@ -9,6 +9,7 @@ import {
   type AiChatMessage,
   type DailyBrief,
 } from "@/lib/journal/api-client";
+import { AiRichText } from "./AiRichText";
 
 export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
   const [brief, setBrief] = useState<DailyBrief | null>(null);
@@ -75,9 +76,11 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
   return (
     <section className="ai-shell">
       <div className="ai-brief">
-        <div className="ai-kicker">AI · DAGBRIEFING</div>
         <div className="ai-brief-head">
-          <h2>Journal-coach</h2>
+          <div>
+            <div className="ai-kicker">AI · dagbriefing</div>
+            <h2>Journal-coach</h2>
+          </div>
           {!readOnly && (
             <button
               type="button"
@@ -92,41 +95,57 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
         {loading ? (
           <p className="ai-body dim">Briefing laden…</p>
         ) : brief?.body ? (
-          <p className="ai-body">{brief.body}</p>
+          <AiRichText text={brief.body} />
         ) : (
-          <p className="ai-body dim">Nog geen briefing. Klik Opnieuw om er een te maken.</p>
+          <p className="ai-body dim">
+            {readOnly
+              ? "Nog geen briefing op dit account."
+              : "Nog geen briefing. Klik Opnieuw om er een te maken."}
+          </p>
         )}
         <p className="ai-legal">
-          Educatie over jouw journal. Geen beleggingsadvies, geen signalen.
+          Educatie over het journal. Geen beleggingsadvies, geen signalen.
         </p>
       </div>
       <div className="ai-chat">
-        <div className="ai-kicker">CHAT · 5 / DAG</div>
+        <div className="ai-kicker">
+          {readOnly ? "Chat · alleen-lezen" : "Chat · 5 / dag"}
+        </div>
         <div className="ai-thread" ref={scroller}>
           {messages.map((m) => (
             <div key={m.id} className={`ai-msg ${m.role}`}>
-              {m.content}
+              {m.role === "assistant" ? (
+                <AiRichText text={m.content} />
+              ) : (
+                m.content
+              )}
             </div>
           ))}
           {!messages.length && (
-            <div className="ai-msg assistant dim">
-              Vraag over jouw fouten, winrate of proces. Geen “moet ik long?”.
+            <div className="ai-empty-chat">
+              {readOnly
+                ? "Hij heeft nog geen vragen gesteld."
+                : "Vraag over fouten, winrate of proces — geen “moet ik long?”."}
             </div>
           )}
         </div>
         {error && <div className="ai-error">{error}</div>}
-        <form onSubmit={(e) => void onChat(e)} className="ai-form">
-          <input
-            className="tj-input"
-            value={question}
-            disabled={readOnly || busy}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder={readOnly ? "Alleen-lezen in coach-view" : "Vraag over je journal…"}
-          />
-          <button className="tb-addbtn" type="submit" disabled={readOnly || busy}>
-            Stuur
-          </button>
-        </form>
+        {readOnly ? (
+          <p className="ai-legal">Je ziet zijn chat. Antwoorden kan hij zelf.</p>
+        ) : (
+          <form onSubmit={(e) => void onChat(e)} className="ai-form">
+            <input
+              className="tj-input"
+              value={question}
+              disabled={busy}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Vraag over je journal…"
+            />
+            <button className="tb-addbtn" type="submit" disabled={busy}>
+              Stuur
+            </button>
+          </form>
+        )}
       </div>
     </section>
   );

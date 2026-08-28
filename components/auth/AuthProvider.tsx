@@ -70,7 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [coachTarget, setCoachTargetState] = useState<CoachTarget | null>(null);
+  const [coachTarget, setCoachTargetState] = useState<CoachTarget | null>(() => {
+    const stored = readStoredCoachTarget();
+    if (stored) setAsUserOverride(stored.uid);
+    return stored;
+  });
 
   const getIdToken = useCallback(async () => {
     const user = getClientAuth().currentUser;

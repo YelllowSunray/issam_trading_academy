@@ -104,15 +104,19 @@ export function Topbar({
           {accounts.length > 0 && (
             <select
               className="mt5-account-select"
-              value={selectedLogin || accounts[0]?.login || ""}
+              value={selectedLogin || ""}
               onChange={(e) => onSelectLogin(e.target.value)}
             >
+              <option value="">
+                Alle accounts · {accounts.reduce((n, a) => n + (a.trade_count || 0), 0)} trades
+              </option>
               {accounts.map((a) => (
                 <option key={a.login} value={a.login}>
                   #{a.login}
                   {a.balance != null
                     ? ` · ${fmtEurAbs(a.balance)}${a.currency ? ` ${a.currency}` : ""}`
                     : ""}
+                  {a.trade_count != null ? ` · ${a.trade_count} trades` : ""}
                   {a.connected ? "" : " (offline)"}
                 </option>
               ))}

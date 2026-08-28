@@ -346,11 +346,15 @@ export function AdminApp() {
                           className="tb-addbtn"
                           style={{ fontSize: 11.5, padding: "8px 12px" }}
                           onClick={() => {
-                            setCoachTarget({
-                              uid: m.uid,
-                              displayName: m.displayName,
-                              email: m.email,
-                            });
+                            if (m.uid === profile?.uid) {
+                              setCoachTarget(null);
+                            } else {
+                              setCoachTarget({
+                                uid: m.uid,
+                                displayName: m.displayName,
+                                email: m.email,
+                              });
+                            }
                             router.push("/journal");
                           }}
                         >

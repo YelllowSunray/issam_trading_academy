@@ -7,6 +7,7 @@ import {
   createManualTrade,
   createTradeDebrief,
   deleteManualTrade,
+  fetchTradeDebrief,
   fetchAccounts,
   fetchAnnotations,
   fetchManualTrades,
@@ -40,7 +41,8 @@ const MT5_STATUS_POLL_MS = 45_000;
 const MT5_ACCOUNTS_POLL_MS = 3 * 60_000;
 
 export function JournalApp() {
-  const { profile, asUser, coachTarget, setCoachTarget } = useAuth();
+  const { profile, asUser, coachTarget, setCoachTarget, loading: authLoading } =
+    useAuth();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
 
   const [page, setPage] = useState<Page>("journal");
@@ -68,6 +70,10 @@ export function JournalApp() {
   const lastSyncRef = useRef<string | null>(null);
   const lastTradeCountRef = useRef<number>(0);
   const lastAccountsFetchRef = useRef(0);
+  const asUserRef = useRef(asUser);
+  asUserRef.current = asUser;
+  const accountsRef = useRef(accounts);
+  accountsRef.current = accounts;
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
@@ -98,24 +104,38 @@ export function JournalApp() {
   const pollMt5 = useCallback(
     async (login: string | null, opts?: { full?: boolean }) => {
       const full = Boolean(opts?.full);
+      const uid = asUserRef.current;
       try {
         const now = Date.now();
         const shouldRefreshAccounts =
           full || now - lastAccountsFetchRef.current >= MT5_ACCOUNTS_POLL_MS;
 
+        let list = accountsRef.current;
         let wanted = login;
         if (shouldRefreshAccounts) {
-          const list = await fetchAccounts();
+          list = await fetchAccounts();
+          if (asUserRef.current !== uid) return;
           lastAccountsFetchRef.current = now;
           setAccounts(list);
-          wanted =
+          const preferred =
             login && list.some((a) => String(a.login) === String(login))
               ? login
-              : list[0]?.login || null;
+              : null;
+          const richest = [...list].sort(
+            (a, b) => (b.trade_count || 0) - (a.trade_count || 0),
+          )[0];
+          const preferredRow = list.find(
+            (a) => String(a.login) === String(preferred),
+          );
+          wanted =
+            preferredRow && (preferredRow.trade_count || 0) > 0
+              ? preferred
+              : richest?.login || preferred || list[0]?.login || null;
           if (wanted && wanted !== login) setSelectedLogin(wanted);
         }
 
         const s = await fetchStatus(wanted);
+        if (asUserRef.current !== uid) return;
         setStatus(s);
 
         setAccounts((prev) =>
@@ -137,12 +157,18 @@ export function JournalApp() {
         const syncChanged = s.last_sync !== lastSyncRef.current;
         const countChanged = s.trade_count !== lastTradeCountRef.current;
         if (full || syncChanged || countChanged) {
-          const trades = await fetchMt5Trades(wanted);
-          setMt5Trades(trades);
+          const chunks = await Promise.all(
+            (list.length ? list : [{ login: wanted }]).map((a) =>
+              a.login ? fetchMt5Trades(a.login) : Promise.resolve([]),
+            ),
+          );
+          if (asUserRef.current !== uid) return;
+          setMt5Trades(chunks.flat());
           lastSyncRef.current = s.last_sync;
           lastTradeCountRef.current = s.trade_count;
         }
       } catch {
+        if (asUserRef.current !== uid) return;
         if (full) setAccounts([]);
         setStatus({
           connected: false,
@@ -158,18 +184,52 @@ export function JournalApp() {
   );
 
   useEffect(() => {
+    if (authLoading || !profile) return;
     let cancelled = false;
+    lastSyncRef.current = null;
+    lastTradeCountRef.current = -1;
+    lastAccountsFetchRef.current = 0;
+    setDebriefs({});
     (async () => {
       try {
         setBooting(true);
         setBootError(null);
-        const settings = await fetchSettings();
+        const [settings, manual, anns, list] = await Promise.all([
+          fetchSettings(),
+          fetchManualTrades(),
+          fetchAnnotations(),
+          fetchAccounts(),
+        ]);
         if (cancelled) return;
-        setSelectedLogin(settings.selectedLogin);
-        await refreshJournal();
-        await pollMt5(settings.selectedLogin, { full: true });
+        setManualTrades(manual);
+        setAnnotations(anns);
+        setAccounts(list);
+        lastAccountsFetchRef.current = Date.now();
+        const richest = [...list].sort(
+          (a, b) => (b.trade_count || 0) - (a.trade_count || 0),
+        )[0];
+        const preferred =
+          settings.selectedLogin &&
+          list.some((a) => String(a.login) === String(settings.selectedLogin))
+            ? settings.selectedLogin
+            : richest?.login || null;
+        const login = readOnly ? null : preferred;
+        setSelectedLogin(login);
+        const logins = list.map((a) => a.login).filter(Boolean);
+        const chunks = await Promise.all(
+          (logins.length ? logins : [null]).map((item) => fetchMt5Trades(item)),
+        );
+        if (cancelled) return;
+        setMt5Trades(chunks.flat());
+        const s = await fetchStatus(preferred);
+        if (cancelled) return;
+        setStatus(s);
+        lastSyncRef.current = s.last_sync;
+        lastTradeCountRef.current = s.trade_count;
       } catch (err) {
         if (!cancelled) {
+          setManualTrades([]);
+          setMt5Trades([]);
           setBootError(
             err instanceof Error
               ? err.message
@@ -183,7 +243,7 @@ export function JournalApp() {
     return () => {
       cancelled = true;
     };
-  }, [pollMt5, refreshJournal, asUser]);
+  }, [authLoading, profile?.uid, asUser, readOnly]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -192,9 +252,17 @@ export function JournalApp() {
     return () => clearInterval(id);
   }, [pollMt5, selectedLogin, asUser]);
 
+  const visibleMt5 = useMemo(() => {
+    if (!selectedLogin) return mt5Trades;
+    const scoped = mt5Trades.filter(
+      (t) => t.login == null || String(t.login) === String(selectedLogin),
+    );
+    return scoped.length ? scoped : mt5Trades;
+  }, [selectedLogin, mt5Trades]);
+
   const enriched = useMemo(
-    () => enrichTrades(mergeTrades(manualTrades, mt5Trades, annotations)),
-    [manualTrades, mt5Trades, annotations],
+    () => enrichTrades(mergeTrades(manualTrades, visibleMt5, annotations)),
+    [manualTrades, visibleMt5, annotations],
   );
 
   const annotateTrade = annotateId
@@ -209,11 +277,14 @@ export function JournalApp() {
         accounts={accounts}
         selectedLogin={selectedLogin}
         onSelectLogin={async (login) => {
-          setSelectedLogin(login);
-          if (!readOnly) await saveSettings({ selectedLogin: login });
-          lastSyncRef.current = null;
-          lastTradeCountRef.current = -1;
-          await pollMt5(login, { full: true });
+          const next = login || null;
+          setSelectedLogin(next);
+          if (!readOnly && next) await saveSettings({ selectedLogin: next });
+          if (next) {
+            lastSyncRef.current = null;
+            lastTradeCountRef.current = -1;
+            await pollMt5(next, { full: true });
+          }
         }}
         status={status}
         onAddTrade={() => setShowTradeModal(true)}
@@ -233,11 +304,16 @@ export function JournalApp() {
         {readOnly && coachTarget && (
           <div className="coach-banner">
             <div>
-              <div className="coach-banner-kicker">Je coacht nu</div>
+              <div className="coach-banner-kicker">
+                Coach-view · volledig journal
+              </div>
               <div className="coach-banner-name">{coachTarget.displayName}</div>
               {coachTarget.email ? (
                 <div className="coach-banner-email">{coachTarget.email}</div>
               ) : null}
+              <div className="coach-banner-email">
+                Alle trades, notes, tags en AI — alleen-lezen
+              </div>
             </div>
             <div className="coach-banner-actions">
               <Link href="/admin" className="pl-reset-btn">
@@ -264,6 +340,20 @@ export function JournalApp() {
               readOnly={readOnly}
               debriefs={debriefs}
               debriefBusy={debriefBusy}
+              onOpenTrade={async (id) => {
+                if (debriefs[id] || debriefBusy === id) return;
+                setDebriefBusy(id);
+                try {
+                  const rec = await fetchTradeDebrief(id);
+                  if (rec.debrief?.body) {
+                    setDebriefs((prev) => ({ ...prev, [id]: rec.debrief!.body }));
+                  }
+                } catch {
+                  /* cache miss is fine */
+                } finally {
+                  setDebriefBusy(null);
+                }
+              }}
               onDebrief={
                 readOnly
                   ? undefined

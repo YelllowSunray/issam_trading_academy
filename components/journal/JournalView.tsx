@@ -5,6 +5,7 @@ import { TJ_INSTRUMENTS } from "@/lib/journal/constants";
 import { buildCurvePoints, buildCurveSVG } from "@/lib/journal/compute";
 import { fmtEur, tjFmtDateTime, tjFmtPrice } from "@/lib/journal/format";
 import type { UnifiedTrade } from "@/lib/journal/types";
+import { AiRichText } from "./AiRichText";
 import {
   IconEdit,
   IconMinus,
@@ -19,6 +20,7 @@ export function JournalView({
   onAnnotate,
   onLightbox,
   onDebrief,
+  onOpenTrade,
   debriefs,
   debriefBusy,
   readOnly = false,
@@ -28,6 +30,7 @@ export function JournalView({
   onAnnotate: (id: string) => void;
   onLightbox: (src: string) => void;
   onDebrief?: (id: string) => void;
+  onOpenTrade?: (id: string) => void;
   debriefs?: Record<string, string>;
   debriefBusy?: string | null;
   readOnly?: boolean;
@@ -170,10 +173,11 @@ export function JournalView({
                     <div
                       className="tj-row"
                       onClick={() =>
-                        setExpanded((prev) => ({
-                          ...prev,
-                          [t.id]: !prev[t.id],
-                        }))
+                        setExpanded((prev) => {
+                          const next = !prev[t.id];
+                          if (next) onOpenTrade?.(t.id);
+                          return { ...prev, [t.id]: next };
+                        })
                       }
                     >
                       <div className="icon">{icon}</div>
@@ -333,20 +337,30 @@ function TradeDetail({
           <span className="v">{v}</span>
         </div>
       ))}
-      {onDebrief && (
+      {(onDebrief || debrief || debriefBusy) && (
         <div className="ai-debrief">
-          <button
-            type="button"
-            className="pl-reset-btn"
-            disabled={debriefBusy}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDebrief();
-            }}
-          >
-            {debriefBusy ? "Debrief…" : "AI debrief"}
-          </button>
-          {debrief ? <p className="ai-body">{debrief}</p> : null}
+          {onDebrief ? (
+            <button
+              type="button"
+              className="pl-reset-btn"
+              disabled={debriefBusy}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDebrief();
+              }}
+            >
+              {debriefBusy ? "Debrief…" : "AI debrief"}
+            </button>
+          ) : (
+            <div className="ai-kicker">AI debrief</div>
+          )}
+          {debriefBusy && !debrief ? (
+            <p className="ai-body dim">Debrief laden…</p>
+          ) : debrief ? (
+            <AiRichText text={debrief} />
+          ) : onDebrief ? null : (
+            <p className="ai-body dim">Nog geen debrief.</p>
+          )}
         </div>
       )}
     </div>

@@ -14,14 +14,6 @@ export async function GET(req: Request) {
     const uid = await resolveTargetUid(req, user);
     const cached = await getDailyBrief(uid, todayAmsterdam());
     if (cached) return NextResponse.json(cached);
-    if (uid !== user.uid) {
-      return NextResponse.json({
-        date: todayAmsterdam(),
-        body: "",
-        createdAt: "",
-        model: "",
-      });
-    }
     if (!groqConfigured()) return jsonError("Groq is niet geconfigureerd", 500);
     const brief = await ensureDailyBrief(uid, false);
     return NextResponse.json(brief);

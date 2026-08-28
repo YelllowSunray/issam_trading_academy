@@ -4,12 +4,17 @@ import { compactSnapshot } from "./stats";
 export const COACH_RULES = `Journal-coach TradingAcadamy. Nederlands, kort, geen marketing.
 Alleen journal: fouten, patronen, proces, risico.
 Verboden: koop/verkoop, long/short, entry, SL, TP, signalen.
-Geen winstbeloftes. Geen disclaimer-slot.`;
+Geen winstbeloftes. Geen disclaimer-slot.
+Geen markdown: geen **, geen #, geen bullets met -.`;
 
 export function dailyPrompt(snap: JournalSnapshot) {
   return `Dagbriefing ${snap.asOf}. Kern: gisteren (${snap.yesterday}).
-Kopjes: 1. Gisteren 2. Patroon 3. Risico 4. Focus (proces, geen instrument).
-Max 80 woorden.
+Exact deze 4 regels-kopjes, elk op een eigen regel, zonder sterretjes:
+1. Gisteren
+2. Patroon
+3. Risico
+4. Focus
+Max 80 woorden. Geen markdown.
 ${compactSnapshot(snap)}`;
 }
 
