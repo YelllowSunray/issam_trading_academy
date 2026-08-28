@@ -75,8 +75,11 @@ export async function syncCloudAccount(
           )
         : Date.now() - LOOKBACK_MS,
     );
+    // API2Trade filters OrderHistory on broker-local close times, which can
+    // sit hours ahead of UTC. A `to=now` window then drops today's closes.
+    const to = new Date(Date.now() + 36 * 60 * 60 * 1000);
     const [history, opened] = await Promise.all([
-      getOrderHistory(target.accountId, isoNoMs(from), isoNoMs(new Date())),
+      getOrderHistory(target.accountId, isoNoMs(from), isoNoMs(to)),
       getOpenPositions(target.accountId),
     ]);
     const closed = mapHistoryToTrades(history, login);
