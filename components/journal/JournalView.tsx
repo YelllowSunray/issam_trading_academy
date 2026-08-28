@@ -187,6 +187,9 @@ export function JournalView({
                         {t.source === "mt5" && (
                           <span className="mt5badge">MT5</span>
                         )}
+                        {t.source === "mt5" && t.exit == null && !t.exitTime ? (
+                          <span className="mt5badge open">OPEN</span>
+                        ) : null}
                       </div>
                       <div
                         className={`dir ${t.direction === "Long" ? "long" : "short"}`}

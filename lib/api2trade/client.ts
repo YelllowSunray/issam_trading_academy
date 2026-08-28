@@ -150,6 +150,20 @@ function historyList(raw: unknown): HistoryOrder[] {
   return [];
 }
 
+export async function getOpenPositions(accountId: string): Promise<HistoryOrder[]> {
+  for (const path of ["/OpenedOrders", "/Positions"]) {
+    try {
+      const raw = await a2tFetch<unknown>(path, { query: { id: accountId } });
+      const list = historyList(raw);
+      if (list.length) return list;
+      if (Array.isArray(raw)) return raw as HistoryOrder[];
+    } catch {
+      /* try next endpoint */
+    }
+  }
+  return [];
+}
+
 export async function getOrderHistory(
   accountId: string,
   fromIso: string,

@@ -154,3 +154,49 @@ export function mapHistoryToTrades(
   }
   return out;
 }
+
+export function mapOpenedToTrades(
+  orders: HistoryOrder[],
+  login: string,
+): Mt5Trade[] {
+  const out: Mt5Trade[] = [];
+  for (const order of orders) {
+    if (isBalanceOp(order)) continue;
+    const direction = directionOf(order);
+    if (!direction) continue;
+    const openTime = unixSeconds(
+      order.openTimestampUTC ??
+        order.openTime ??
+        order.time ??
+        asRecord(order.dealInternalIn)?.openTimeAsDateTime,
+    );
+    const entry = num(
+      order.openPrice ?? order.open_price ?? order.price ?? order.priceOpen,
+    );
+    if (entry == null && openTime == null) continue;
+    const id = pickId(order, login);
+    if (!id) continue;
+    const sl = num(order.stopLoss ?? order.sl);
+    const profit = num(order.profit) ?? 0;
+    const swap = num(order.swap) ?? 0;
+    const commission = num(order.commission) ?? 0;
+    const fee = num(order.fee) ?? 0;
+    out.push({
+      id,
+      date: dateOnly(openTime, order.openTime),
+      instrument: str(order.symbol) || "Overig",
+      direction,
+      entry,
+      exit: null,
+      sl: sl && sl > 0 ? sl : null,
+      volume: num(order.lots ?? order.volume ?? order.openLots),
+      profitEur: profit + swap + commission + fee,
+      entryTime: openTime,
+      exitTime: null,
+      commission,
+      swap,
+      login,
+    });
+  }
+  return out;
+}

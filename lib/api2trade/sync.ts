@@ -4,11 +4,12 @@ import { findUserByEmail } from "@/lib/users/store";
 import {
   checkConnect,
   getAccountSummary,
+  getOpenPositions,
   getOrderHistory,
   getVendorAccounts,
   registerAccount,
 } from "./client";
-import { mapHistoryToTrades } from "./map";
+import { mapHistoryToTrades, mapOpenedToTrades } from "./map";
 import {
   deleteCloudAccount,
   ensureSeedAccount,
@@ -74,12 +75,14 @@ export async function syncCloudAccount(
           )
         : Date.now() - LOOKBACK_MS,
     );
-    const history = await getOrderHistory(
-      target.accountId,
-      isoNoMs(from),
-      isoNoMs(new Date()),
-    );
-    const trades = mapHistoryToTrades(history, login);
+    const [history, opened] = await Promise.all([
+      getOrderHistory(target.accountId, isoNoMs(from), isoNoMs(new Date())),
+      getOpenPositions(target.accountId),
+    ]);
+    const closed = mapHistoryToTrades(history, login);
+    const live = mapOpenedToTrades(opened, login);
+    const seen = new Set(closed.map((t) => t.id));
+    const trades = [...closed, ...live.filter((t) => !seen.has(t.id))];
     const batch = await receiveTradesBatch(uid, login, trades);
     await receiveHeartbeat(uid, {
       login,

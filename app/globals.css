@@ -278,6 +278,11 @@ button:focus-visible {
   margin-left: 5px;
   vertical-align: middle;
 }
+.mt5badge.open {
+  color: var(--bull);
+  border-color: rgba(76, 139, 103, 0.45);
+  background: rgba(76, 139, 103, 0.12);
+}
 .mt5-account-select {
   background: var(--ink-2);
   color: var(--paper);
