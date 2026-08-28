@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   addAdminCloudAccount,
   deleteAdminCourse,
+  fetchAdminAiBrief,
   fetchAdminCloudAccounts,
   fetchAdminOverview,
   fetchBillingStatus,
@@ -354,6 +355,29 @@ export function AdminApp() {
                           }}
                         >
                           Journal
+                        </button>
+                        <button
+                          type="button"
+                          className="tb-addbtn"
+                          style={{ fontSize: 11.5, padding: "8px 12px" }}
+                          disabled={busyUid === m.uid}
+                          onClick={async () => {
+                            setBusyUid(m.uid);
+                            try {
+                              const rec = await fetchAdminAiBrief(m.uid);
+                              window.alert(rec.body);
+                            } catch (err) {
+                              window.alert(
+                                err instanceof Error
+                                  ? err.message
+                                  : "AI brief mislukt",
+                              );
+                            } finally {
+                              setBusyUid(null);
+                            }
+                          }}
+                        >
+                          AI brief
                         </button>
                         <button
                           type="button"

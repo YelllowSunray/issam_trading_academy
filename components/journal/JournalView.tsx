@@ -18,12 +18,18 @@ export function JournalView({
   onDelete,
   onAnnotate,
   onLightbox,
+  onDebrief,
+  debriefs,
+  debriefBusy,
   readOnly = false,
 }: {
   trades: UnifiedTrade[];
   onDelete: (id: string) => void;
   onAnnotate: (id: string) => void;
   onLightbox: (src: string) => void;
+  onDebrief?: (id: string) => void;
+  debriefs?: Record<string, string>;
+  debriefBusy?: string | null;
   readOnly?: boolean;
 }) {
   const [filter, setFilter] = useState("Alle");
@@ -239,7 +245,14 @@ export function JournalView({
                           </button>
                         ))}
                     </div>
-                    {expanded[t.id] && <TradeDetail trade={t} />}
+                    {expanded[t.id] && (
+                      <TradeDetail
+                        trade={t}
+                        debrief={debriefs?.[t.id]}
+                        debriefBusy={debriefBusy === t.id}
+                        onDebrief={onDebrief ? () => onDebrief(t.id) : undefined}
+                      />
+                    )}
                   </div>
                 );
               })
@@ -289,7 +302,17 @@ export function JournalView({
   );
 }
 
-function TradeDetail({ trade: t }: { trade: UnifiedTrade }) {
+function TradeDetail({
+  trade: t,
+  debrief,
+  debriefBusy,
+  onDebrief,
+}: {
+  trade: UnifiedTrade;
+  debrief?: string;
+  debriefBusy?: boolean;
+  onDebrief?: () => void;
+}) {
   const rows: [string, string | number][] = [
     ["Entry", t.entry ?? "—"],
     ["Stop loss", t.sl != null ? t.sl : "—"],
@@ -310,6 +333,22 @@ function TradeDetail({ trade: t }: { trade: UnifiedTrade }) {
           <span className="v">{v}</span>
         </div>
       ))}
+      {onDebrief && (
+        <div className="ai-debrief">
+          <button
+            type="button"
+            className="pl-reset-btn"
+            disabled={debriefBusy}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDebrief();
+            }}
+          >
+            {debriefBusy ? "Debrief…" : "AI debrief"}
+          </button>
+          {debrief ? <p className="ai-body">{debrief}</p> : null}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   createManualTrade,
+  createTradeDebrief,
   deleteManualTrade,
   fetchAccounts,
   fetchAnnotations,
@@ -16,6 +17,7 @@ import {
   saveSettings,
   uploadImage,
 } from "@/lib/journal/api-client";
+import { AiCoach } from "./AiCoach";
 import { enrichTrades, mergeTrades } from "@/lib/journal/compute";
 import type {
   ManualTrade,
@@ -59,6 +61,8 @@ export function JournalApp() {
   const [showTradeModal, setShowTradeModal] = useState(false);
   const [annotateId, setAnnotateId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [debriefs, setDebriefs] = useState<Record<string, string>>({});
+  const [debriefBusy, setDebriefBusy] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
   const lastSyncRef = useRef<string | null>(null);
@@ -253,20 +257,42 @@ export function JournalApp() {
         {booting && !bootError ? (
           <div className="journal-loading">Home laden…</div>
         ) : page === "journal" ? (
-          <JournalView
-            trades={enriched}
-            readOnly={readOnly}
-            onDelete={async (id) => {
-              if (readOnly) return;
-              await deleteManualTrade(id);
-              await refreshJournal();
-            }}
-            onAnnotate={(id) => {
-              if (readOnly) return;
-              setAnnotateId(id);
-            }}
-            onLightbox={setLightbox}
-          />
+          <>
+            <AiCoach key={asUser || "self"} readOnly={readOnly} />
+            <JournalView
+              trades={enriched}
+              readOnly={readOnly}
+              debriefs={debriefs}
+              debriefBusy={debriefBusy}
+              onDebrief={
+                readOnly
+                  ? undefined
+                  : async (id) => {
+                      setDebriefBusy(id);
+                      try {
+                        const rec = await createTradeDebrief(id);
+                        setDebriefs((prev) => ({ ...prev, [id]: rec.body }));
+                      } catch (err) {
+                        window.alert(
+                          err instanceof Error ? err.message : "Debrief mislukt",
+                        );
+                      } finally {
+                        setDebriefBusy(null);
+                      }
+                    }
+              }
+              onDelete={async (id) => {
+                if (readOnly) return;
+                await deleteManualTrade(id);
+                await refreshJournal();
+              }}
+              onAnnotate={(id) => {
+                if (readOnly) return;
+                setAnnotateId(id);
+              }}
+              onLightbox={setLightbox}
+            />
+          </>
         ) : (
           <PnLDashboard trades={enriched} />
         )}

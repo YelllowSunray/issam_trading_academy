@@ -383,6 +383,79 @@ export async function fetchDexTrending() {
   }>(await fetch("/api/markets/dex-trending", { headers: await authHeaders() }));
 }
 
+export type DailyBrief = {
+  date: string;
+  body: string;
+  createdAt: string;
+  model: string;
+};
+
+export type AiChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+};
+
+export async function fetchDailyBrief() {
+  return parseJson<DailyBrief>(
+    await fetch(withAsUser("/api/ai/daily"), { headers: await authHeaders() }),
+  );
+}
+
+export async function regenerateDailyBrief() {
+  return parseJson<DailyBrief>(
+    await fetch(withAsUser("/api/ai/daily"), {
+      method: "POST",
+      headers: await authHeaders(true),
+    }),
+  );
+}
+
+export async function fetchAiChat() {
+  return parseJson<{ messages: AiChatMessage[] }>(
+    await fetch(withAsUser("/api/ai/chat"), { headers: await authHeaders() }),
+  );
+}
+
+export async function sendAiChat(question: string) {
+  return parseJson<AiChatMessage>(
+    await fetch(withAsUser("/api/ai/chat"), {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify({ question }),
+    }),
+  );
+}
+
+export async function fetchTradeDebrief(tradeId: string) {
+  return parseJson<{ debrief: { body: string; createdAt: string } | null }>(
+    await fetch(withAsUser(`/api/ai/debrief?tradeId=${encodeURIComponent(tradeId)}`), {
+      headers: await authHeaders(),
+    }),
+  );
+}
+
+export async function createTradeDebrief(tradeId: string) {
+  return parseJson<{ body: string; createdAt: string }>(
+    await fetch(withAsUser("/api/ai/debrief"), {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify({ tradeId }),
+    }),
+  );
+}
+
+export async function fetchAdminAiBrief(uid: string) {
+  return parseJson<{ body: string; name: string }>(
+    await fetch("/api/admin/ai/brief", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify({ uid }),
+    }),
+  );
+}
+
 export async function searchDex(q: string) {
   return parseJson<{ pairs: Array<Record<string, unknown>>; error?: string }>(
     await fetch(`/api/markets/dex?q=${encodeURIComponent(q)}`, {
