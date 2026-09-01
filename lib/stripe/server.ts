@@ -1,12 +1,42 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { ApiError } from "@/lib/api/errors";
+import { isVipPlanId, type VipPlanId } from "@/lib/platform/plans";
 
 function stripeSecret() {
   return process.env.STRIPE_SECRET_KEY || "";
 }
 
 export function isStripeReady() {
-  return Boolean(stripeSecret() && process.env.STRIPE_PRICE_ID);
+  return Boolean(
+    stripeSecret() &&
+      (process.env.STRIPE_PRICE_MONTHLY ||
+        process.env.STRIPE_PRICE_ID ||
+        process.env.STRIPE_PRICE_QUARTERLY ||
+        process.env.STRIPE_PRICE_SEMIANNUAL ||
+        process.env.STRIPE_PRICE_YEARLY),
+  );
+}
+
+export function stripePriceForPlan(planId: VipPlanId | string | null | undefined) {
+  const id = isVipPlanId(planId) ? planId : "monthly";
+  const map: Record<VipPlanId, string | undefined> = {
+    monthly: process.env.STRIPE_PRICE_MONTHLY || process.env.STRIPE_PRICE_ID,
+    quarterly: process.env.STRIPE_PRICE_QUARTERLY,
+    semiannual: process.env.STRIPE_PRICE_SEMIANNUAL,
+    yearly: process.env.STRIPE_PRICE_YEARLY,
+  };
+  return { planId: id, priceId: (map[id] || "").trim() };
+}
+
+export function publicPlanAvailability() {
+  return {
+    monthly: Boolean(
+      process.env.STRIPE_PRICE_MONTHLY || process.env.STRIPE_PRICE_ID,
+    ),
+    quarterly: Boolean(process.env.STRIPE_PRICE_QUARTERLY),
+    semiannual: Boolean(process.env.STRIPE_PRICE_SEMIANNUAL),
+    yearly: Boolean(process.env.STRIPE_PRICE_YEARLY),
+  };
 }
 
 async function stripeGet(path: string): Promise<Record<string, unknown>> {
@@ -52,8 +82,16 @@ export async function createCheckoutSession(input: {
   customerId?: string | null;
   successUrl: string;
   cancelUrl: string;
+  planId?: VipPlanId | string | null;
 }) {
-  const price = process.env.STRIPE_PRICE_ID || "";
+  const { planId, priceId } = stripePriceForPlan(input.planId);
+  if (!priceId) {
+    throw new ApiError(
+      `Dit VIP-pakket (${planId}) is nog niet gekoppeld in Stripe.`,
+      503,
+    );
+  }
+  const price = priceId;
   const params: Record<string, string> = {
     mode: "subscription",
     success_url: input.successUrl.includes("{CHECKOUT_SESSION_ID}")
@@ -64,7 +102,9 @@ export async function createCheckoutSession(input: {
     "line_items[0][quantity]": "1",
     client_reference_id: input.uid,
     "metadata[uid]": input.uid,
+    "metadata[planId]": planId,
     "subscription_data[metadata][uid]": input.uid,
+    "subscription_data[metadata][planId]": planId,
   };
   if (input.customerId) params.customer = input.customerId;
   else params.customer_email = input.email;

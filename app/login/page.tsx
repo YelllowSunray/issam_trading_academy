@@ -68,9 +68,9 @@ function LoginForm() {
   } = useAuth();
   const params = useSearchParams();
   const next = useMemo(() => {
-    const raw = params.get("next") || "/journal";
+    const raw = params.get("next") || "/dashboard";
     if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/login")) {
-      return "/journal";
+      return "/dashboard";
     }
     return raw;
   }, [params]);

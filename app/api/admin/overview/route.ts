@@ -2,38 +2,59 @@ import { NextResponse } from "next/server";
 import { withApiError } from "@/lib/api/errors";
 import { normalizeMembership } from "@/lib/auth/membership";
 import { requireAdmin } from "@/lib/auth/request";
-import { countLessons, listCourses, progressCountsByUser } from "@/lib/courses/store";
+import { countBacktestsByUser } from "@/lib/backtest/store";
+import {
+  countCompletedCourses,
+  countLessons,
+  listCourses,
+  progressLessonIdsByUser,
+} from "@/lib/courses/store";
+import { countGoalsByUser } from "@/lib/goals/store";
 import { getPlatformSettings, stripeConfigured } from "@/lib/platform/settings";
 import type { AdminOverview, MemberRow } from "@/lib/platform/types";
+import { listSignals } from "@/lib/signals/store";
 import { listCoachStudents } from "@/lib/users/store";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
     await requireAdmin(req);
-    const [users, courses, settings] = await Promise.all([
+    const [users, courses, settings, signals] = await Promise.all([
       listCoachStudents(),
       listCourses(),
       getPlatformSettings(),
+      listSignals(80),
     ]);
-    const progress = await progressCountsByUser(users.map((u) => u.uid));
-    const lessonsTotal = courses
-      .filter((c) => c.published)
-      .reduce((sum, c) => sum + countLessons(c), 0);
+    const uids = users.map((u) => u.uid);
+    const published = courses.filter((c) => c.published);
+    const [progressIds, goalsByUser, backtestsByUser] = await Promise.all([
+      progressLessonIdsByUser(uids),
+      countGoalsByUser(uids),
+      countBacktestsByUser(uids),
+    ]);
+    const lessonsTotal = published.reduce((sum, c) => sum + countLessons(c), 0);
 
     const now = Date.now();
-    const members: MemberRow[] = users.map((u) => ({
-      uid: u.uid,
-      email: u.email,
-      displayName: u.displayName,
-      role: u.role,
-      membership: normalizeMembership(u),
-      disabled: Boolean(u.disabled),
-      createdAt: u.createdAt,
-      lastJournalActivityAt: u.lastJournalActivityAt || null,
-      lastSeenAt: u.lastSeenAt || null,
-      lessonsCompleted: progress.get(u.uid) || 0,
-      lessonsTotal,
-    }));
+    const members: MemberRow[] = users.map((u) => {
+      const lessonIds = progressIds.get(u.uid) || new Set<string>();
+      return {
+        uid: u.uid,
+        email: u.email,
+        displayName: u.displayName,
+        role: u.role,
+        membership: normalizeMembership(u),
+        disabled: Boolean(u.disabled),
+        createdAt: u.createdAt,
+        lastJournalActivityAt: u.lastJournalActivityAt || null,
+        lastSeenAt: u.lastSeenAt || null,
+        lessonsCompleted: lessonIds.size,
+        lessonsTotal,
+        telegramLinked: Boolean(u.telegramId),
+        telegramUsername: u.telegramUsername || null,
+        goalsCount: goalsByUser.get(u.uid) || 0,
+        backtestsCount: backtestsByUser.get(u.uid) || 0,
+        certificatesCount: countCompletedCourses(published, lessonIds),
+      };
+    });
 
     const students = members.filter((m) => m.role !== "admin");
     const overview: AdminOverview = {
@@ -56,11 +77,31 @@ export async function GET(req: Request) {
       },
       courses: {
         total: courses.length,
-        published: courses.filter((c) => c.published).length,
+        published: published.length,
         lessons: courses.reduce((sum, c) => sum + countLessons(c), 0),
       },
       community: {
-        telegramConfigured: Boolean(settings.telegramInviteUrl),
+        telegramConfigured: Boolean(
+          settings.telegramVipChatId ||
+            settings.telegramNormalChatId ||
+            settings.telegramInviteUrl,
+        ),
+        telegramLinked: members.filter((m) => m.telegramLinked).length,
+      },
+      signals: {
+        total: signals.length,
+        open: signals.filter((s) => s.status === "open").length,
+      },
+      goals: {
+        students: members.filter((m) => m.goalsCount > 0).length,
+        total: members.reduce((s, m) => s + m.goalsCount, 0),
+      },
+      backtests: {
+        students: members.filter((m) => m.backtestsCount > 0).length,
+        total: members.reduce((s, m) => s + m.backtestsCount, 0),
+      },
+      certificates: {
+        awarded: members.reduce((s, m) => s + m.certificatesCount, 0),
       },
       stripe: {
         configured: stripeConfigured(),

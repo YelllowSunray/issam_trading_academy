@@ -10,7 +10,7 @@ export const MEMBERSHIP_STATUSES: MembershipStatus[] = [
 export const MEMBERSHIP_LABELS: Record<MembershipStatus, string> = {
   none: "Geen toegang",
   coaching_free: "1:1 coaching",
-  subscriber: "Geabonneerd",
+  subscriber: "VIP",
   expired: "Abonnement verlopen",
 };
 
@@ -38,4 +38,16 @@ export function hasPlatformAccess(profile: {
 }): boolean {
   if (profile.disabled) return false;
   return isActiveMembership(profile.membership, profile.role);
+}
+
+/** Paid VIP or 1:1 coaching (or admin) → VIP Telegram-groep. */
+export function isVipTelegramTier(profile: {
+  role?: UserRole | null;
+  membership?: MembershipStatus | null;
+}): boolean {
+  if (profile.role === "admin") return true;
+  return (
+    profile.membership === "subscriber" ||
+    profile.membership === "coaching_free"
+  );
 }

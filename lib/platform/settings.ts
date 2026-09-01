@@ -14,16 +14,23 @@ const DEFAULTS: PlatformSettings = {
   telegramInviteUrl: "",
   telegramLabel: "TradingAcadamy Community",
   communityNote:
-    "De community draait op Telegram. Leden met actieve membership krijgen hier de invite.",
+    "Koppel je Telegram-account. De bot stuurt je een persoonlijke invite naar de juiste groep (VIP of normaal).",
+  telegramVipChatId: "",
+  telegramNormalChatId: "",
   stripeEnabled: false,
-  subscriberPriceLabel: "€49 / maand",
+  subscriberPriceLabel: "€100 / maand",
   coachingPriceNote:
     "Inbegrepen bij 1:1 coaching. Prijs spreek je met Issam af — niet via Stripe.",
 };
 
 export function stripeConfigured() {
   return Boolean(
-    process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_ID,
+    process.env.STRIPE_SECRET_KEY &&
+      (process.env.STRIPE_PRICE_MONTHLY ||
+        process.env.STRIPE_PRICE_ID ||
+        process.env.STRIPE_PRICE_QUARTERLY ||
+        process.env.STRIPE_PRICE_SEMIANNUAL ||
+        process.env.STRIPE_PRICE_YEARLY),
   );
 }
 
@@ -48,6 +55,11 @@ export async function savePlatformSettings(
       .trim(),
     telegramLabel: (patch.telegramLabel ?? current.telegramLabel).trim(),
     communityNote: patch.communityNote ?? current.communityNote,
+    telegramVipChatId: (patch.telegramVipChatId ?? current.telegramVipChatId)
+      .trim(),
+    telegramNormalChatId: (
+      patch.telegramNormalChatId ?? current.telegramNormalChatId
+    ).trim(),
     subscriberPriceLabel: (
       patch.subscriberPriceLabel ?? current.subscriberPriceLabel
     ).trim(),

@@ -10,7 +10,10 @@ import {
   fetchAdminCloudAccounts,
   fetchAdminOverview,
   fetchBillingStatus,
+  deleteAdminSignal,
+  fetchSignals,
   saveAdminCourse,
+  saveAdminSignal,
   savePlatformSettings,
   seedStarterCourse,
   setAdminMembership,
@@ -23,15 +26,26 @@ import {
   type CloudAccountsPayload,
 } from "@/lib/journal/api-client";
 import type { MembershipStatus } from "@/lib/auth/types";
+import type { TradeDirection } from "@/lib/journal/types";
+import type { TradeSignal } from "@/lib/signals/types";
 import type {
   AdminOverview,
   Course,
   MemberRow,
   PlatformSettings,
 } from "@/lib/platform/types";
+import { VIP_PLANS } from "@/lib/platform/plans";
 import { hardReplace } from "@/lib/navigation";
 
-type Tab = "overzicht" | "leden" | "cloud" | "cursussen" | "community" | "systeem";
+type Tab =
+  | "overzicht"
+  | "coach"
+  | "leden"
+  | "cloud"
+  | "cursussen"
+  | "signalen"
+  | "community"
+  | "systeem";
 
 function rel(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -62,7 +76,7 @@ export function AdminApp() {
 
   useEffect(() => {
     if (profile && profile.role !== "admin") {
-      hardReplace("/journal");
+      hardReplace("/dashboard");
     }
   }, [profile]);
 
@@ -116,6 +130,25 @@ export function AdminApp() {
     Boolean(profile?.email) &&
     profile!.email.trim().toLowerCase() === ownerEmail;
 
+  function openCoach(m: MemberRow, href = "/dashboard") {
+    if (m.uid === profile?.uid) {
+      setCoachTarget(null);
+    } else {
+      setCoachTarget({
+        uid: m.uid,
+        displayName: m.displayName,
+        email: m.email,
+      });
+    }
+    const [path, hash] = href.split("#");
+    router.push(path);
+    if (hash) {
+      queueMicrotask(() => {
+        window.location.hash = hash;
+      });
+    }
+  }
+
   async function changeMembership(uid: string, membership: MembershipStatus) {
     setBusyUid(uid);
     try {
@@ -135,8 +168,9 @@ export function AdminApp() {
       <p className="tj-eyebrow">ADMIN</p>
       <h1 className="tj-title">Platform-overzicht</h1>
       <p className="pl-sub">
-        Twee soorten leden: <strong>geabonneerd</strong> (alleen platform, geen
-        1:1) en <strong>1:1 coaching</strong> (handmatig).
+        <strong>VIP</strong> via Stripe, <strong>1:1</strong> handmatig.
+        Coach-view opent dashboard, journal, backtest, academy, certificates
+        en Telegram van de student — alleen-lezen.
         {profile?.email ? ` Ingelogd als ${profile.email}.` : ""}
       </p>
 
@@ -144,11 +178,13 @@ export function AdminApp() {
         {(
           [
             ["overzicht", "Overzicht"],
+            ["coach", "Coach-view"],
             ["leden", "Leden"],
             ["cloud", "Cloud MT5"],
             ["cursussen", "Cursussen"],
+            ["signalen", "Signalen"],
             ["community", "Community"],
-            ["systeem", "Prijzen"],
+            ["systeem", "VIP-prijzen"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -185,18 +221,18 @@ export function AdminApp() {
               </div>
             </div>
             <div className="tj-panel">
-              <div className="ttl">Geabonneerd · geen 1:1</div>
+              <div className="ttl">VIP · geen 1:1</div>
               <p className="pl-sub2">
-                Alleen platform via Stripe. Geen coaching. Status komt uit
-                checkout.
+                Stripe-pakketten (€100 / €250 / €500 / €1000). Signals, academy
+                en VIP-Telegram. Geen 1:1.
               </p>
               <div className="pl-value" style={{ marginTop: 10 }}>
                 {overview.members.subscriber}
               </div>
               <div className="pl-sub2">
-                {settings?.subscriberPriceLabel || "Prijs nog niet gezet"}
+                {settings?.subscriberPriceLabel || "VIP vanaf €100 / maand"}
                 {" · "}
-                Stripe {overview.stripe.configured ? "klaar" : "wacht op Price ID"}
+                Stripe {overview.stripe.configured ? "klaar" : "wacht op Price IDs"}
               </div>
             </div>
           </div>
@@ -204,31 +240,51 @@ export function AdminApp() {
             <Kpi label="Leden" value={overview.members.total} />
             <Kpi label="Wacht op toegang" value={overview.members.none} />
             <Kpi label="Verlopen" value={overview.members.expired} />
-            <Kpi label="Journal vandaag" value={overview.members.journalActiveToday} />
+            <Kpi label="Journal 24u" value={overview.members.journalActiveToday} />
             <Kpi label="Online 24u" value={overview.members.seenRecently} />
-            <Kpi label="Cursussen" value={`${overview.courses.published}/${overview.courses.total}`} />
             <Kpi
-              label="Telegram"
-              value={overview.community.telegramConfigured ? "aan" : "uit"}
+              label="Cursussen"
+              value={`${overview.courses.published}/${overview.courses.total}`}
             />
+            <Kpi
+              label="Telegram gekoppeld"
+              value={overview.community.telegramLinked}
+            />
+            <Kpi
+              label="Signals open"
+              value={`${overview.signals.open}/${overview.signals.total}`}
+            />
+            <Kpi
+              label="Goals"
+              value={`${overview.goals.total} · ${overview.goals.students} leden`}
+            />
+            <Kpi
+              label="Backtests"
+              value={`${overview.backtests.total} · ${overview.backtests.students} leden`}
+            />
+            <Kpi label="Certificates" value={overview.certificates.awarded} />
             <Kpi label="Disabled" value={overview.members.disabled} />
           </div>
         </>
       )}
 
+      {tab === "coach" && (
+        <CoachRoster members={members} onOpen={openCoach} />
+      )}
+
       {tab === "leden" && (
         <section className="tj-panel">
           <p className="pl-sub2" style={{ marginBottom: 12 }}>
-            <strong>Geabonneerd</strong> = alleen platform, geen coaching.
-            <strong> 1:1</strong> = coaching-klant (jij zet dat aan). Admins
-            staan apart.
+            <strong>VIP</strong> = Stripe-pakket, geen 1:1.
+            <strong> 1:1</strong> = coaching-klant (jij zet dat aan). Coach-view
+            opent hun hele platform. Admins staan apart.
           </p>
           <div className="plat-chip-row">
             {(
               [
                 ["all", "Alle"],
                 ["none", "Geen toegang"],
-                ["subscriber", "Geabonneerd"],
+                ["subscriber", "VIP"],
                 ["coaching_free", "1:1"],
                 ["expired", "Verlopen"],
               ] as const
@@ -257,7 +313,11 @@ export function AdminApp() {
                   <th>Lid</th>
                   <th>Toegang</th>
                   <th>Journal</th>
-                  <th>Cursus</th>
+                  <th>Academy</th>
+                  <th>TG</th>
+                  <th>Goals</th>
+                  <th>BT</th>
+                  <th>Certs</th>
                   <th>Seen</th>
                   <th style={{ textAlign: "right" }}>Acties</th>
                 </tr>
@@ -288,6 +348,14 @@ export function AdminApp() {
                     <td>
                       {m.lessonsCompleted}/{m.lessonsTotal}
                     </td>
+                    <td>
+                      {m.telegramLinked
+                        ? `@${m.telegramUsername || "gekoppeld"}`
+                        : "—"}
+                    </td>
+                    <td>{m.goalsCount || "—"}</td>
+                    <td>{m.backtestsCount || "—"}</td>
+                    <td>{m.certificatesCount || "—"}</td>
                     <td>{rel(m.lastSeenAt)}</td>
                     <td>
                       <div className="admin-table-actions">
@@ -345,20 +413,9 @@ export function AdminApp() {
                           type="button"
                           className="tb-addbtn"
                           style={{ fontSize: 11.5, padding: "8px 12px" }}
-                          onClick={() => {
-                            if (m.uid === profile?.uid) {
-                              setCoachTarget(null);
-                            } else {
-                              setCoachTarget({
-                                uid: m.uid,
-                                displayName: m.displayName,
-                                email: m.email,
-                              });
-                            }
-                            router.push("/journal");
-                          }}
+                          onClick={() => openCoach(m, "/dashboard")}
                         >
-                          Journal
+                          Coach-view
                         </button>
                         <button
                           type="button"
@@ -441,6 +498,8 @@ export function AdminApp() {
         />
       )}
 
+      {tab === "signalen" && <SignalsTab />}
+
       {tab === "community" && settings && (
         <CommunityTab
           settings={settings}
@@ -515,8 +574,8 @@ function AccessBadge({ member }: { member: MemberRow }) {
   if (member.membership === "subscriber") {
     return (
       <div className="access-cell">
-        <span className="status-chip on">Geabonneerd</span>
-        <div className="pl-sub2">geen 1:1</div>
+        <span className="status-chip on">VIP</span>
+        <div className="pl-sub2">Stripe · geen 1:1</div>
       </div>
     );
   }
@@ -541,6 +600,78 @@ function AccessBadge({ member }: { member: MemberRow }) {
       <span className="status-chip">Geen toegang</span>
       <div className="pl-sub2">wacht op 1:1 of Stripe</div>
     </div>
+  );
+}
+
+function CoachRoster({
+  members,
+  onOpen,
+}: {
+  members: MemberRow[];
+  onOpen: (m: MemberRow, href: string) => void;
+}) {
+  const rows = members
+    .filter((m) => m.role !== "admin")
+    .slice()
+    .sort((a, b) => {
+      const aT = a.lastJournalActivityAt || "";
+      const bT = b.lastJournalActivityAt || "";
+      if (aT !== bT) return bT.localeCompare(aT);
+      return a.displayName.localeCompare(b.displayName, "nl");
+    });
+
+  return (
+    <section className="tj-panel">
+      <div className="ttl">Coach-view</div>
+      <p className="pl-sub2" style={{ marginBottom: 14 }}>
+        Open het platform van de student: dashboard (P/L + goals), journal,
+        backtest, signals, academy, certificates en Telegram. Alles
+        alleen-lezen.
+      </p>
+      <div className="coach-roster">
+        {rows.map((m) => (
+          <article key={m.uid} className="coach-roster-card">
+            <div>
+              <div style={{ fontWeight: 600 }}>{m.displayName}</div>
+              <div className="pl-sub2">{m.email}</div>
+              <div style={{ marginTop: 8 }}>
+                <AccessBadge member={m} />
+              </div>
+              <div className="pl-sub2" style={{ marginTop: 8 }}>
+                Journal {rel(m.lastJournalActivityAt)} · academy{" "}
+                {m.lessonsCompleted}/{m.lessonsTotal} · TG{" "}
+                {m.telegramLinked ? `@${m.telegramUsername || "ok"}` : "—"} ·{" "}
+                {m.goalsCount} goals · {m.backtestsCount} backtests ·{" "}
+                {m.certificatesCount} certs
+              </div>
+            </div>
+            <div className="coach-banner-nav">
+              {(
+                [
+                  ["/dashboard", "Dashboard"],
+                  ["/journal", "Journal"],
+                  ["/journal#backtest", "Backtest"],
+                  ["/signals", "Signals"],
+                  ["/learn", "Academy"],
+                  ["/learn/certificates", "Certs"],
+                  ["/community", "Telegram"],
+                ] as const
+              ).map(([href, label]) => (
+                <button
+                  key={href}
+                  type="button"
+                  className="plat-chip"
+                  onClick={() => onOpen(m, href)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+      {!rows.length && <div className="tj-empty">Nog geen leden.</div>}
+    </section>
   );
 }
 
@@ -572,12 +703,23 @@ function PricingTab({
 
   return (
     <section className="tj-panel">
-      <div className="ttl">Twee paden, één platform</div>
+      <div className="ttl">VIP-pakketten + 1:1</div>
       <p className="pl-sub2" style={{ marginBottom: 16 }}>
-        Zet hier alleen de <strong>weergave</strong> van de prijzen. 1:1
-        factureert Issam zelf. Stripe-leden betalen het bedrag dat bij{" "}
-        <code>STRIPE_PRICE_ID</code> hoort — die twee moeten overeenkomen.
+        Weergave-teksten. Stripe-leden kiezen een van de vier pakketten.
+        1:1 factureert Issam zelf. Price IDs:{" "}
+        <code>STRIPE_PRICE_MONTHLY</code> (of <code>STRIPE_PRICE_ID</code>),{" "}
+        <code>STRIPE_PRICE_QUARTERLY</code>,{" "}
+        <code>STRIPE_PRICE_SEMIANNUAL</code>, <code>STRIPE_PRICE_YEARLY</code>.
       </p>
+      <div className="pl-kpi-grid" style={{ marginBottom: 16 }}>
+        {VIP_PLANS.map((p) => (
+          <Kpi
+            key={p.id}
+            label={p.label}
+            value={`${p.priceLabel}${p.cadence}`}
+          />
+        ))}
+      </div>
       <div className="tj-field">
         <div className="lbl">1:1 coaching (buiten Stripe)</div>
         <textarea
@@ -596,13 +738,13 @@ function PricingTab({
           className="tj-input"
           value={subscriberPriceLabel}
           onChange={(e) => setSubscriberPriceLabel(e.target.value)}
-          placeholder="€49 / maand"
+          placeholder="VIP vanaf €100 / maand"
         />
         <div className="hint" style={{ marginTop: 6 }}>
-          Dit ziet de gebruiker op de paywall. Stripe:{" "}
+          Extra regel op de paywall naast de vier pakketten. Stripe:{" "}
           {stripeReady
-            ? "Price ID staat in env — checkout kan."
-            : "nog geen STRIPE_PRICE_ID. Maak één recurring product in Stripe en plak de price_… in .env.local."}
+            ? "minstens één Price ID staat in env — checkout kan."
+            : "nog geen STRIPE_PRICE_* IDs. Maak vier recurring prices en plak ze in env."}
         </div>
       </div>
       {info && <div className="pl-empty">{info}</div>}
@@ -618,7 +760,9 @@ function PricingTab({
       </button>
       <p className="pl-sub2" style={{ marginTop: 16 }}>
         Webhook: <code>/api/stripe/webhook</code> · env:{" "}
-        <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_PRICE_ID</code>,{" "}
+        <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_PRICE_MONTHLY</code> (of{" "}
+        <code>STRIPE_PRICE_ID</code>), <code>STRIPE_PRICE_QUARTERLY</code>,{" "}
+        <code>STRIPE_PRICE_SEMIANNUAL</code>, <code>STRIPE_PRICE_YEARLY</code>,{" "}
         <code>STRIPE_WEBHOOK_SECRET</code>
       </p>
     </section>
@@ -635,20 +779,43 @@ function CommunityTab({
   const [url, setUrl] = useState(settings.telegramInviteUrl);
   const [label, setLabel] = useState(settings.telegramLabel);
   const [note, setNote] = useState(settings.communityNote);
+  const [vipChat, setVipChat] = useState(settings.telegramVipChatId || "");
+  const [normalChat, setNormalChat] = useState(settings.telegramNormalChatId || "");
   const [info, setInfo] = useState<string | null>(null);
 
   return (
     <section className="tj-panel">
-      <div className="ttl">Telegram-gate</div>
+      <div className="ttl">Telegram-groepen</div>
       <p className="pl-sub2" style={{ marginBottom: 14 }}>
-        Plak een invite-link. Alleen leden met actieve membership zien hem.
+        Bot moet admin zijn in beide groepen. Env:{" "}
+        <code>TELEGRAM_BOT_TOKEN</code>,{" "}
+        <code>NEXT_PUBLIC_TELEGRAM_BOT_USERNAME</code>. Kick bij expiry is geen
+        MVP. Fallback-URL alleen als de bot geen link kan maken.
       </p>
       <div className="tj-field">
         <div className="lbl">Label</div>
         <input className="tj-input" value={label} onChange={(e) => setLabel(e.target.value)} />
       </div>
       <div className="tj-field">
-        <div className="lbl">Invite URL</div>
+        <div className="lbl">VIP chat ID</div>
+        <input
+          className="tj-input"
+          value={vipChat}
+          onChange={(e) => setVipChat(e.target.value)}
+          placeholder="-100…"
+        />
+      </div>
+      <div className="tj-field">
+        <div className="lbl">Normale chat ID</div>
+        <input
+          className="tj-input"
+          value={normalChat}
+          onChange={(e) => setNormalChat(e.target.value)}
+          placeholder="-100…"
+        />
+      </div>
+      <div className="tj-field">
+        <div className="lbl">Fallback invite URL</div>
         <input
           className="tj-input"
           value={url}
@@ -665,12 +832,222 @@ function CommunityTab({
         type="button"
         className="tb-addbtn"
         onClick={async () => {
-          await onSave({ telegramInviteUrl: url, telegramLabel: label, communityNote: note });
+          await onSave({
+            telegramInviteUrl: url,
+            telegramLabel: label,
+            communityNote: note,
+            telegramVipChatId: vipChat,
+            telegramNormalChatId: normalChat,
+          });
           setInfo("Opgeslagen.");
         }}
       >
         Opslaan
       </button>
+    </section>
+  );
+}
+
+function SignalsTab() {
+  const [rows, setRows] = useState<TradeSignal[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    instrument: "XAUUSD",
+    direction: "Long" as TradeDirection,
+    entry: "",
+    sl: "",
+    tp1: "",
+    tp2: "",
+    thesis: "",
+    status: "open" as TradeSignal["status"],
+    id: "" as string,
+  });
+
+  function load() {
+    fetchSignals()
+      .then((d) => setRows(d.signals))
+      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <section className="tj-panel">
+      <div className="ttl">Signals</div>
+      <p className="pl-sub2" style={{ marginBottom: 14 }}>
+        Geen copy-trading, geen MT5-executie. Elk signaal toont een verplichte
+        disclaimer.
+      </p>
+      {error && <div className="pl-empty">{error}</div>}
+      <div className="tj-grid3">
+        <div className="tj-field">
+          <div className="lbl">Instrument</div>
+          <input
+            className="tj-input"
+            value={form.instrument}
+            onChange={(e) => setForm((f) => ({ ...f, instrument: e.target.value }))}
+          />
+        </div>
+        <div className="tj-field">
+          <div className="lbl">Richting</div>
+          <select
+            className="tj-input"
+            value={form.direction}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, direction: e.target.value as TradeDirection }))
+            }
+          >
+            <option>Long</option>
+            <option>Short</option>
+          </select>
+        </div>
+        <div className="tj-field">
+          <div className="lbl">Status</div>
+          <select
+            className="tj-input"
+            value={form.status}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                status: e.target.value as TradeSignal["status"],
+              }))
+            }
+          >
+            <option value="open">open</option>
+            <option value="closed">closed</option>
+          </select>
+        </div>
+      </div>
+      <div className="tj-grid3">
+        <div className="tj-field">
+          <div className="lbl">Entry</div>
+          <input
+            className="tj-input"
+            value={form.entry}
+            onChange={(e) => setForm((f) => ({ ...f, entry: e.target.value }))}
+          />
+        </div>
+        <div className="tj-field">
+          <div className="lbl">SL</div>
+          <input
+            className="tj-input"
+            value={form.sl}
+            onChange={(e) => setForm((f) => ({ ...f, sl: e.target.value }))}
+          />
+        </div>
+        <div className="tj-field">
+          <div className="lbl">TP1 / TP2</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              className="tj-input"
+              value={form.tp1}
+              onChange={(e) => setForm((f) => ({ ...f, tp1: e.target.value }))}
+              placeholder="TP1"
+            />
+            <input
+              className="tj-input"
+              value={form.tp2}
+              onChange={(e) => setForm((f) => ({ ...f, tp2: e.target.value }))}
+              placeholder="TP2"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="tj-field">
+        <div className="lbl">Rationale</div>
+        <textarea
+          className="tj-input"
+          rows={3}
+          value={form.thesis}
+          onChange={(e) => setForm((f) => ({ ...f, thesis: e.target.value }))}
+        />
+      </div>
+      <button
+        type="button"
+        className="tb-addbtn"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await saveAdminSignal({
+              id: form.id || undefined,
+              instrument: form.instrument,
+              direction: form.direction,
+              entry: form.entry,
+              sl: form.sl,
+              tps: [form.tp1, form.tp2].filter(Boolean),
+              thesis: form.thesis,
+              status: form.status,
+            });
+            setForm((f) => ({
+              ...f,
+              id: "",
+              entry: "",
+              sl: "",
+              tp1: "",
+              tp2: "",
+              thesis: "",
+            }));
+            load();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Opslaan mislukt");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {form.id ? "Signaal bijwerken" : "Signaal plaatsen"}
+      </button>
+      <div style={{ marginTop: 16 }}>
+        {rows.map((s) => (
+          <div key={s.id} className="bt-row">
+            <div>
+              <strong>
+                {s.instrument} {s.direction} · {s.status}
+              </strong>
+              <p>
+                {s.entry} → SL {s.sl}
+                {s.tps.length ? ` · TP ${s.tps.join(" / ")}` : ""}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="pl-reset-btn"
+                onClick={() =>
+                  setForm({
+                    id: s.id,
+                    instrument: s.instrument,
+                    direction: s.direction,
+                    entry: s.entry,
+                    sl: s.sl,
+                    tp1: s.tps[0] || "",
+                    tp2: s.tps[1] || "",
+                    thesis: s.thesis,
+                    status: s.status,
+                  })
+                }
+              >
+                Bewerk
+              </button>
+              <button
+                type="button"
+                className="pl-reset-btn"
+                onClick={async () => {
+                  await deleteAdminSignal(s.id);
+                  load();
+                }}
+              >
+                Weg
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

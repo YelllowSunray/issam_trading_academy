@@ -17,6 +17,7 @@ export type DailyBrief = {
   body: string;
   createdAt: string;
   model: string;
+  tradeCount?: number;
 };
 
 export type ChatMessage = {

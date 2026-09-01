@@ -7,6 +7,9 @@ import { AI_LIMITS } from "./limits";
 export type JournalSnapshot = {
   asOf: string;
   yesterday: string;
+  owner: string;
+  empty: boolean;
+  logins: string[];
   totals: {
     trades: number;
     wins: number;
@@ -64,7 +67,10 @@ export async function loadUserJournal(uid: string): Promise<UnifiedTrade[]> {
   return enrichTrades(mergeTrades(manual, chunks.flat(), annotations));
 }
 
-export function buildSnapshot(trades: UnifiedTrade[]): JournalSnapshot {
+export function buildSnapshot(
+  trades: UnifiedTrade[],
+  opts?: { owner?: string; logins?: string[] },
+): JournalSnapshot {
   const asOf = todayAmsterdam();
   const yesterday = addDays(asOf, -1);
   const counted = trades.filter((t) => t.r != null || t.eur != null);
@@ -86,9 +92,19 @@ export function buildSnapshot(trades: UnifiedTrade[]): JournalSnapshot {
     byInst[name] = row;
   });
 
+  const logins = [
+    ...new Set(
+      (opts?.logins || trades.map((t) => (t.login != null ? String(t.login) : "")))
+        .filter(Boolean),
+    ),
+  ];
+
   return {
     asOf,
     yesterday,
+    owner: (opts?.owner || "").trim() || "dit journal",
+    empty: counted.length === 0,
+    logins,
     totals: {
       trades: counted.length,
       wins: wins.length,
@@ -130,6 +146,9 @@ export function buildSnapshot(trades: UnifiedTrade[]): JournalSnapshot {
 
 export function compactSnapshot(snap: JournalSnapshot) {
   return JSON.stringify({
+    owner: snap.owner,
+    empty: snap.empty,
+    logins: snap.logins,
     asOf: snap.asOf,
     y: snap.yesterday,
     tot: snap.totals,

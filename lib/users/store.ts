@@ -300,7 +300,46 @@ export async function toAuthUser(profile: UserProfile): Promise<AuthUser> {
     role: profile.role,
     membership: normalizeMembership(profile),
     disabled: Boolean(profile.disabled),
+    telegramId: profile.telegramId || null,
+    telegramUsername: profile.telegramUsername || null,
   };
+}
+
+export async function setTelegramIdentity(
+  uid: string,
+  patch: {
+    telegramId: string;
+    telegramUsername?: string | null;
+  },
+) {
+  await userRef(uid).set(
+    {
+      telegramId: patch.telegramId,
+      telegramUsername: patch.telegramUsername || null,
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true },
+  );
+  await meter({ writes: 1 });
+}
+
+export async function setTelegramInvite(
+  uid: string,
+  patch: {
+    telegramInviteUrl: string | null;
+    telegramInviteExpiresAt: string | null;
+    telegramInviteChatId: string | null;
+    telegramInviteTier: "vip" | "normal" | null;
+  },
+) {
+  await userRef(uid).set(
+    {
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true },
+  );
+  await meter({ writes: 1 });
 }
 
 export async function rotateIngestSecret(uid: string, plainSecret: string) {

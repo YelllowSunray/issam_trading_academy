@@ -21,6 +21,12 @@ export type UserProfile = {
   stripeSubscriptionId?: string | null;
   membershipUpdatedAt?: string | null;
   membershipUpdatedBy?: string | null;
+  telegramId?: string | null;
+  telegramUsername?: string | null;
+  telegramInviteUrl?: string | null;
+  telegramInviteExpiresAt?: string | null;
+  telegramInviteChatId?: string | null;
+  telegramInviteTier?: "vip" | "normal" | null;
 };
 
 export type CoachTarget = {
@@ -36,4 +42,6 @@ export type AuthUser = {
   role: UserRole;
   membership: MembershipStatus;
   disabled: boolean;
+  telegramId?: string | null;
+  telegramUsername?: string | null;
 };

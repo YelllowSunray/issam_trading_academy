@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { VIP_PERKS, VIP_PLANS } from "@/lib/platform/plans";
 
 const FEATURES = [
   {
@@ -18,16 +19,16 @@ const FEATURES = [
     body: "TradingView-charts voor XAUUSD, WTI, US500 en BTC, calculators, kalender en een crypto-overzicht.",
   },
   {
-    title: "Lidmaatschap",
-    body: "1:1-coaching gratis via Issam, of self-service Stripe. Admins zien iedereen in één overzicht.",
+    title: "VIP-abonnement",
+    body: "Calls, analyses, group calls en VIP-Telegram. €100 / maand tot €1000 / jaar — of 1:1 via Issam.",
   },
 ];
 
 export function HomePage() {
   const { firebaseUser, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const primaryHref = firebaseUser ? "/journal" : "/login?next=/journal";
-  const primaryLabel = firebaseUser ? "Open platform" : "Start met journal";
+  const primaryHref = firebaseUser ? "/dashboard" : "/login?next=/dashboard";
+  const primaryLabel = firebaseUser ? "Open platform" : "Word lid";
 
   useEffect(() => {
     document.documentElement.style.scrollBehavior = "smooth";
@@ -59,6 +60,9 @@ export function HomePage() {
           <a href="#features" onClick={() => setMenuOpen(false)}>
             Features
           </a>
+          <a href="#vip" onClick={() => setMenuOpen(false)}>
+            VIP
+          </a>
           <a href="#how" onClick={() => setMenuOpen(false)}>
             Hoe het werkt
           </a>
@@ -66,7 +70,7 @@ export function HomePage() {
             <>
               {firebaseUser ? (
                 <Link
-                  href="/journal"
+                  href="/dashboard"
                   className="home-nav-cta"
                   onClick={() => setMenuOpen(false)}
                 >
@@ -75,14 +79,14 @@ export function HomePage() {
               ) : (
                 <>
                   <Link
-                    href="/login?next=/journal"
+                    href="/login?next=/dashboard"
                     className="home-nav-link"
                     onClick={() => setMenuOpen(false)}
                   >
                     Inloggen
                   </Link>
                   <Link
-                    href="/login?next=/journal"
+                    href="/login?next=/dashboard"
                     className="home-nav-cta"
                     onClick={() => setMenuOpen(false)}
                   >
@@ -169,7 +173,50 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="how" className="home-section home-section-alt">
+      <section id="vip" className="home-section home-section-alt">
+        <p className="home-eyebrow">VIP</p>
+        <h2 className="home-section-title">Kies je pakket</h2>
+        <p className="home-section-lead">
+          Geen vage “lidmaatschap”-tekst. Dit krijg je: calls, uitgebreide
+          analyses, group calls, VIP-Telegram, academy en journal. Geen
+          automatische copy-trading.
+        </p>
+        <ul className="vip-perks home-vip-perks">
+          {VIP_PERKS.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+        <div className="vip-grid">
+          {VIP_PLANS.map((plan) => (
+            <article
+              key={plan.id}
+              className={`vip-card${plan.highlight ? " featured" : ""}`}
+            >
+              {plan.highlight ? (
+                <div className="vip-badge">Meest gekozen</div>
+              ) : null}
+              <div className="vip-label">{plan.label}</div>
+              <div className="vip-price">
+                {plan.priceLabel}
+                <span>{plan.cadence}</span>
+              </div>
+              <Link
+                href={
+                  firebaseUser
+                    ? "/settings"
+                    : `/login?next=${encodeURIComponent("/settings")}`
+                }
+                className="tb-addbtn"
+                style={{ textDecoration: "none", textAlign: "center" }}
+              >
+                Word VIP
+              </Link>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="how" className="home-section">
         <p className="home-eyebrow">Workflow</p>
         <h2 className="home-section-title">Van chart naar inzicht</h2>
         <p className="home-section-lead">

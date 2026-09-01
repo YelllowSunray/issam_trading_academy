@@ -23,8 +23,8 @@ export function Topbar({
   readOnly,
   embedded = false,
 }: {
-  page: "journal" | "dashboard";
-  onPageChange: (page: "journal" | "dashboard") => void;
+  page: "journal" | "dashboard" | "backtest";
+  onPageChange: (page: "journal" | "dashboard" | "backtest") => void;
   accounts: Mt5AccountSummary[];
   selectedLogin: string | null;
   onSelectLogin: (login: string) => void;
@@ -83,6 +83,16 @@ export function Topbar({
             <span className="tb-label-full">P&amp;L Dashboard</span>
             <span className="tb-label-short">P&amp;L</span>
           </button>
+          <button
+            type="button"
+            className={`tb-tab${page === "backtest" ? " active" : ""}`}
+            onClick={() => onPageChange("backtest")}
+          >
+            Backtest
+          </button>
+          <Link href="/tools" className="tb-tab">
+            Tools
+          </Link>
           {!embedded && isAdmin && (
             <Link href="/admin" className="tb-tab">
               Coaching

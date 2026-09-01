@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
@@ -29,13 +28,14 @@ import {
   type TradeAnnotation,
 } from "@/lib/journal/types";
 import { AnnotateModal } from "./AnnotateModal";
+import { BacktestPanel } from "./BacktestPanel";
 import { JournalView } from "./JournalView";
 import { Lightbox } from "./Lightbox";
 import { PnLDashboard } from "./PnLDashboard";
 import { Topbar } from "./Topbar";
 import { TradeModal } from "./TradeModal";
 
-type Page = "journal" | "dashboard";
+type Page = "journal" | "dashboard" | "backtest";
 
 /** Status/online poll — keep light. Full trade reload only on sync changes. */
 const MT5_STATUS_POLL_MS = 45_000;
@@ -82,10 +82,18 @@ export function JournalApp() {
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
-    setPage(hash === "dashboard" ? "dashboard" : "journal");
+    setPage(
+      hash === "dashboard"
+        ? "dashboard"
+        : hash === "backtest"
+          ? "backtest"
+          : "journal",
+    );
     const onHash = () => {
       const h = window.location.hash.replace("#", "");
-      setPage(h === "dashboard" ? "dashboard" : "journal");
+      setPage(
+        h === "dashboard" ? "dashboard" : h === "backtest" ? "backtest" : "journal",
+      );
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -93,7 +101,8 @@ export function JournalApp() {
 
   const changePage = (next: Page) => {
     setPage(next);
-    window.location.hash = next === "dashboard" ? "dashboard" : "journal";
+    window.location.hash =
+      next === "dashboard" ? "dashboard" : next === "backtest" ? "backtest" : "journal";
     window.scrollTo(0, 0);
   };
 
@@ -327,37 +336,10 @@ export function JournalApp() {
             {bootError}
           </div>
         )}
-        {readOnly && coachTarget && (
-          <div className="coach-banner">
-            <div>
-              <div className="coach-banner-kicker">
-                Coach-view · volledig journal
-              </div>
-              <div className="coach-banner-name">{coachTarget.displayName}</div>
-              {coachTarget.email ? (
-                <div className="coach-banner-email">{coachTarget.email}</div>
-              ) : null}
-              <div className="coach-banner-email">
-                Alle trades, notes, tags en AI — alleen-lezen
-              </div>
-            </div>
-            <div className="coach-banner-actions">
-              <Link href="/admin" className="pl-reset-btn">
-                Alle studenten
-              </Link>
-              <button
-                type="button"
-                className="tb-addbtn"
-                style={{ fontSize: 12, padding: "8px 12px" }}
-                onClick={() => setCoachTarget(null)}
-              >
-                Stop coach-view
-              </button>
-            </div>
-          </div>
-        )}
         {booting && !bootError ? (
-          <div className="journal-loading">Home laden…</div>
+          <div className="journal-loading">Journal laden…</div>
+        ) : page === "backtest" ? (
+          <BacktestPanel key={asUser || "self"} readOnly={readOnly} />
         ) : page === "journal" ? (
           <>
             <AiCoach key={asUser || "self"} readOnly={readOnly} />

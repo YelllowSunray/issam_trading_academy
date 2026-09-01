@@ -198,6 +198,33 @@ button:focus-visible {
   gap: 8px;
   flex-wrap: wrap;
 }
+.coach-banner-global {
+  max-width: 1160px;
+  margin: 16px auto 0;
+}
+.coach-banner-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.coach-roster {
+  display: flex;
+  flex-direction: column;
+}
+.coach-roster-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.coach-roster-card:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
 .activity-pill {
   display: inline-flex;
   align-items: center;
@@ -2706,5 +2733,201 @@ button:focus-visible {
 @media (max-width: 860px) {
   .ai-shell {
     grid-template-columns: 1fr;
+  }
+}
+
+.plat-gate-wide {
+  max-width: 920px;
+}
+.vip-perks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--paper-dim);
+}
+.vip-perks li::before {
+  content: "· ";
+  color: var(--gold);
+}
+.home-vip-perks {
+  justify-content: center;
+  margin-bottom: 22px;
+}
+.vip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.vip-card {
+  position: relative;
+  background: var(--ink-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 16px 14px 14px;
+}
+.vip-card.featured {
+  border-color: var(--gold);
+}
+.vip-badge {
+  position: absolute;
+  top: -9px;
+  right: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--gold);
+  color: #181205;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+.vip-label {
+  font-size: 12px;
+  color: var(--paper-dim);
+  margin-bottom: 6px;
+}
+.vip-price {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: var(--font-display), Georgia, serif;
+  margin-bottom: 12px;
+}
+.vip-price span {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--paper-dim);
+  font-family: inherit;
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.goal-list {
+  list-style: none;
+  padding: 12px 0 0;
+  margin: 0;
+}
+.goal-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.goal-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.goal-list .done {
+  text-decoration: line-through;
+  color: var(--paper-dim);
+}
+.sig-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sig-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 14px;
+}
+.sig-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.sig-dir.long {
+  color: var(--bull);
+}
+.sig-dir.short {
+  color: var(--bear);
+}
+.sig-status {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+.sig-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.sig-thesis {
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.sig-disclaimer {
+  font-size: 11px;
+  color: var(--paper-dim);
+  margin: 0;
+  line-height: 1.45;
+}
+.cert-sheet {
+  max-width: 640px;
+  margin: 20px auto;
+  padding: 48px 36px;
+  text-align: center;
+  border: 1px solid var(--gold);
+  background: var(--ink-2);
+}
+.cert-kicker {
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--gold);
+}
+.cert-sheet h2 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 32px;
+  margin: 8px 0 16px;
+}
+.cert-name {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.cert-date {
+  color: var(--paper-dim);
+  margin-top: 18px;
+}
+.bt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.bt-row p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+@media (max-width: 800px) {
+  .dash-grid,
+  .vip-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  .plat-nav,
+  .no-print,
+  .page-header-back,
+  .pl-reset-btn {
+    display: none !important;
+  }
+  .cert-sheet {
+    border-color: #bf9b30;
+    background: #fff;
+    color: #111;
   }
 }

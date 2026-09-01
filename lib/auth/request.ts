@@ -89,3 +89,14 @@ export async function resolveTargetUid(
   }
   return asUser;
 }
+
+export async function requireSelfUid(
+  req: Request,
+  self: AuthUser,
+): Promise<string> {
+  const uid = await resolveTargetUid(req, self);
+  if (uid !== self.uid) {
+    throw new ApiError("Coach-view is alleen-lezen", 403);
+  }
+  return uid;
+}

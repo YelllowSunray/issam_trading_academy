@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export function PageHeader({
   title,
   subtitle,
-  backHref = "/journal",
+  backHref = "/dashboard",
   backLabel = "← Home",
   actions,
 }: {

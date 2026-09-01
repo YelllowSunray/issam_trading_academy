@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { MemberPage } from "@/components/platform/MemberPage";
 import {
@@ -131,8 +132,18 @@ function CryptoInner() {
           <p className="tj-eyebrow">CRYPTO · LIVE FEED</p>
           <h1 className="tj-title">DexScreener</h1>
           <p className="pl-sub">
-            Trending pairs per window. Majors met logo. Geen orders vanuit het platform.
+            Educatie + marktdata. Geen orders vanuit het platform. Geen
+            custodial wallet — later eigen wallet koppelen (WalletConnect of
+            Privy).
           </p>
+          <div className="plat-chip-row" style={{ marginTop: 10 }}>
+            <Link href="/markets" className="pl-reset-btn">
+              Markets
+            </Link>
+            <Link href="/news" className="pl-reset-btn">
+              Nieuws
+            </Link>
+          </div>
         </div>
         <div className="dx-windows">
           {WINDOWS.map((w) => (
@@ -252,7 +263,11 @@ function CryptoInner() {
       </section>
 
       <section className="tj-panel dx-panel">
-        <div className="ttl">Hyperliquid · read-only</div>
+        <div className="ttl">Hyperliquid · adres-lookup</div>
+        <p className="pl-sub2" style={{ margin: "6px 0 10px" }}>
+          Plak een adres. Sleutels blijven bij jou — we bouwen geen eigen
+          key-management.
+        </p>
         <form onSubmit={(e) => void onHl(e)} className="plat-inline-form">
           <input
             className="tj-input"

@@ -7,9 +7,13 @@ import {
   coachBriefPrompt,
   dailyPrompt,
   debriefPrompt,
+  emptyDailyBrief,
+  EMPTY_CHAT,
   looksLikeSignalAsk,
 } from "./prompts";
 import { buildSnapshot, compactSnapshot, loadUserJournal, todayAmsterdam } from "./stats";
+import { getUserProfile } from "@/lib/users/store";
+import { listAccounts } from "@/lib/mt5/store";
 import {
   addChat,
   getDailyBrief,
@@ -38,15 +42,40 @@ export async function ensureDailyBrief(
 ): Promise<DailyBrief> {
   const date = todayAmsterdam();
   const existing = await getDailyBrief(uid, date);
-  if (existing && !force) return existing;
+  const [trades, profile, accounts] = await Promise.all([
+    loadUserJournal(uid),
+    getUserProfile(uid),
+    listAccounts(uid),
+  ]);
+  const owner = profile?.displayName || profile?.email || "dit journal";
+  const snap = buildSnapshot(trades, {
+    owner,
+    logins: accounts.map((a) => a.login),
+  });
+  const stale =
+    existing &&
+    !force &&
+    ((existing.tradeCount ?? 0) !== snap.totals.trades ||
+      (snap.empty && existing.model !== "empty-journal"));
+  if (existing && !force && !stale) return existing;
   if (existing && force) {
     const regen = await takeQuota(uid, "regen", AI_LIMITS.regenPerUser, date);
     if (!regen.ok) {
       throw new ApiError("Je kunt de briefing 1× per dag opnieuw maken.", 429);
     }
   }
+  if (snap.empty) {
+    const brief: DailyBrief = {
+      date,
+      body: emptyDailyBrief(owner, date),
+      createdAt: new Date().toISOString(),
+      model: "empty-journal",
+      tradeCount: 0,
+    };
+    await saveDailyBrief(uid, brief);
+    return brief;
+  }
   await reserveGroq();
-  const snap = buildSnapshot(await loadUserJournal(uid));
   const body = await groqChat({
     system: COACH_RULES,
     messages: [{ role: "user", content: dailyPrompt(snap) }],
@@ -57,6 +86,7 @@ export async function ensureDailyBrief(
     body,
     createdAt: new Date().toISOString(),
     model: MODEL(),
+    tradeCount: snap.totals.trades,
   };
   await saveDailyBrief(uid, brief);
   return brief;
@@ -120,12 +150,21 @@ export async function chatWithJournal(uid: string, question: string) {
       429,
     );
   }
-  await reserveGroq();
   await addChat(uid, "user", text);
-  const [snap, history] = await Promise.all([
-    loadUserJournal(uid).then(buildSnapshot),
+  const [trades, profile, accounts, history] = await Promise.all([
+    loadUserJournal(uid),
+    getUserProfile(uid),
+    listAccounts(uid),
     listChat(uid, AI_LIMITS.chatHistory + 2),
   ]);
+  const snap = buildSnapshot(trades, {
+    owner: profile?.displayName || profile?.email || "dit journal",
+    logins: accounts.map((a) => a.login),
+  });
+  if (snap.empty) {
+    return addChat(uid, "assistant", EMPTY_CHAT);
+  }
+  await reserveGroq();
   const messages = history
     .filter((m) => m.content)
     .slice(-AI_LIMITS.chatHistory)
@@ -146,6 +185,17 @@ export async function coachBrief(
   displayName: string,
   adminUid: string,
 ) {
+  const [trades, accounts] = await Promise.all([
+    loadUserJournal(uid),
+    listAccounts(uid),
+  ]);
+  const snap = buildSnapshot(trades, {
+    owner: displayName,
+    logins: accounts.map((a) => a.login),
+  });
+  if (snap.empty) {
+    return `${displayName} heeft nog geen trades in dit journal. Geen patronen of risico om te reviewen. Eerst MT5 koppelen of handmatig loggen.`;
+  }
   const quota = await takeQuota(
     adminUid,
     "admin",
@@ -159,7 +209,6 @@ export async function coachBrief(
     );
   }
   await reserveGroq();
-  const snap = buildSnapshot(await loadUserJournal(uid));
   return groqChat({
     system: COACH_RULES,
     messages: [{ role: "user", content: coachBriefPrompt(snap, displayName) }],

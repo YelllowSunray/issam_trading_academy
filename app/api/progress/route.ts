@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { jsonError, withApiError } from "@/lib/api/errors";
-import { requireAuthUser } from "@/lib/auth/request";
+import { requireAuthUser, requireSelfUid, resolveTargetUid } from "@/lib/auth/request";
 import { listProgress, setLessonProgress } from "@/lib/courses/store";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
     const user = await requireAuthUser(req);
-    return NextResponse.json(await listProgress(user.uid));
+    const uid = await resolveTargetUid(req, user);
+    return NextResponse.json(await listProgress(uid));
   });
 }
 
 export async function PUT(req: Request) {
   return withApiError(async () => {
     const user = await requireAuthUser(req);
+    const uid = await requireSelfUid(req, user);
     const body = (await req.json()) as {
       courseId?: string;
       lessonId?: string;
@@ -22,7 +24,7 @@ export async function PUT(req: Request) {
       return jsonError("courseId, lessonId en completed zijn verplicht");
     }
     const row = await setLessonProgress(
-      user.uid,
+      uid,
       body.courseId,
       body.lessonId,
       body.completed,

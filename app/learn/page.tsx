@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { fetchCourses, fetchProgress } from "@/lib/journal/api-client";
 import type { Course, LessonProgress } from "@/lib/platform/types";
 
 function LearnInner() {
+  const { asUser } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [progress, setProgress] = useState<LessonProgress[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -18,18 +20,21 @@ function LearnInner() {
         setProgress(p);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, []);
+  }, [asUser]);
 
   const done = new Set(progress.map((p) => p.lessonId));
 
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">EDUCATIE</p>
+      <p className="tj-eyebrow">ACADEMY</p>
       <h1 className="tj-title">Cursussen</h1>
       <p className="pl-sub">
         Video + korte samenvatting per les. Voortgang wordt per account
         bijgehouden.
       </p>
+      <Link href="/learn/certificates" className="pl-reset-btn" style={{ marginBottom: 16 }}>
+        Certificates
+      </Link>
       {error && <div className="pl-empty">{error}</div>}
       <div className="plat-card-grid">
         {courses.map((course) => {

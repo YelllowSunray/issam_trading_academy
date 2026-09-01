@@ -14,11 +14,13 @@ export async function POST(req: Request) {
       );
     }
     const origin = new URL(req.url).origin;
+    const body = (await req.json().catch(() => ({}))) as { planId?: string };
     const profile = await getUserProfile(user.uid);
     const session = await createCheckoutSession({
       uid: user.uid,
       email: user.email,
       customerId: profile?.stripeCustomerId,
+      planId: body.planId,
       successUrl: `${origin}/settings?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${origin}/settings?checkout=cancel`,
     });

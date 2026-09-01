@@ -13,8 +13,10 @@ import {
   fetchMyCloudSync,
   openBillingPortal,
   rotateMt5Secret,
-  startCheckout,
+  fetchPublicPricing,
 } from "@/lib/journal/api-client";
+import { VipPlans } from "@/components/platform/VipPlans";
+import { VIP_PLANS, type VipPlan } from "@/lib/platform/plans";
 
 function SettingsInner() {
   const { profile, logout, updateDisplayName, refreshProfile } = useAuth();
@@ -31,6 +33,10 @@ function SettingsInner() {
   const [busy, setBusy] = useState(false);
   const [profileBusy, setProfileBusy] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || "");
+  const [plans, setPlans] = useState<Array<VipPlan & { available?: boolean }>>(
+    VIP_PLANS,
+  );
+  const [stripeReady, setStripeReady] = useState(false);
   const member = isActiveMembership(profile?.membership, profile?.role);
 
   const origin =
@@ -41,6 +47,15 @@ function SettingsInner() {
   useEffect(() => {
     setDisplayName(profile?.displayName || "");
   }, [profile?.displayName]);
+
+  useEffect(() => {
+    fetchPublicPricing()
+      .then((p) => {
+        setStripeReady(p.stripeEnabled);
+        if (p.plans?.length) setPlans(p.plans);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!member) return;
@@ -115,8 +130,8 @@ function SettingsInner() {
       <PageHeader
         title="Profiel & instellingen"
         subtitle="Pas je naam aan, beheer lidmaatschap en MT5-koppeling."
-        backHref="/journal"
-        backLabel="← Home"
+        backHref="/dashboard"
+        backLabel="← Dashboard"
       />
 
       <div className="tj-panel">
@@ -127,24 +142,14 @@ function SettingsInner() {
           {profile ? MEMBERSHIP_LABELS[profile.membership] : "—"}
         </div>
         <p className="pl-sub2" style={{ marginBottom: 12 }}>
-          1:1-klanten worden door Issam op coaching_free gezet. Platform-only
-          leden betalen via Stripe.
+          1:1-klanten zet Issam op coaching. VIP kiest hier een pakket.
         </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="tb-addbtn"
-            onClick={async () => {
-              try {
-                const { url } = await startCheckout();
-                window.location.href = url;
-              } catch (e) {
-                setError(e instanceof Error ? e.message : "Checkout mislukt");
-              }
-            }}
-          >
-            Word lid / verlengen
-          </button>
+        <VipPlans
+          plans={plans}
+          stripeReady={stripeReady}
+          onError={setError}
+        />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
           <button
             type="button"
             className="pl-reset-btn"

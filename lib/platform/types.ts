@@ -36,6 +36,8 @@ export type PlatformSettings = {
   telegramInviteUrl: string;
   telegramLabel: string;
   communityNote: string;
+  telegramVipChatId: string;
+  telegramNormalChatId: string;
   stripeEnabled: boolean;
   /** Shown on the paywall — must match the Stripe Price. */
   subscriberPriceLabel: string;
@@ -61,6 +63,22 @@ export type AdminOverview = {
   };
   community: {
     telegramConfigured: boolean;
+    telegramLinked: number;
+  };
+  signals: {
+    total: number;
+    open: number;
+  };
+  goals: {
+    students: number;
+    total: number;
+  };
+  backtests: {
+    students: number;
+    total: number;
+  };
+  certificates: {
+    awarded: number;
   };
   stripe: {
     configured: boolean;
@@ -79,4 +97,9 @@ export type MemberRow = {
   lastSeenAt: string | null;
   lessonsCompleted: number;
   lessonsTotal: number;
+  telegramLinked: boolean;
+  telegramUsername: string | null;
+  goalsCount: number;
+  backtestsCount: number;
+  certificatesCount: number;
 };

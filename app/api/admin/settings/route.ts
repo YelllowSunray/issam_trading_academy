@@ -21,6 +21,8 @@ export async function PUT(req: Request) {
       telegramInviteUrl?: string;
       telegramLabel?: string;
       communityNote?: string;
+      telegramVipChatId?: string;
+      telegramNormalChatId?: string;
       subscriberPriceLabel?: string;
       coachingPriceNote?: string;
     };

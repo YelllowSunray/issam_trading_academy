@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { UserMenu } from "@/components/ui/UserMenu";
 import { MEMBERSHIP_LABELS } from "@/lib/auth/membership";
 import { PLATFORM_NAV } from "@/lib/platform/nav";
+import { CoachViewBanner } from "./CoachViewBanner";
 
 export function PlatformShell({
   children,
@@ -22,14 +23,14 @@ export function PlatformShell({
   const items = PLATFORM_NAV.filter((item) => !item.adminOnly || admin);
 
   function active(href: string) {
-    if (href === "/journal") return pathname === "/journal";
+    if (href === "/dashboard") return pathname === "/dashboard";
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (
     <div className="plat-shell">
       <header className="plat-nav">
-        <Link href="/journal" className="tb-brand" onClick={() => setOpen(false)}>
+        <Link href="/dashboard" className="tb-brand" onClick={() => setOpen(false)}>
           Trading<span>Acadamy</span>
         </Link>
         <button
@@ -64,7 +65,10 @@ export function PlatformShell({
           <UserMenu isAdmin={admin} />
         </div>
       </header>
-      <div className={flush ? "plat-body-flush" : "plat-body"}>{children}</div>
+      <div className={flush ? "plat-body-flush" : "plat-body"}>
+        <CoachViewBanner />
+        {children}
+      </div>
     </div>
   );
 }

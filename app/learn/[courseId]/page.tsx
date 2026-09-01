@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { fetchCourse, fetchProgress, setProgress } from "@/lib/journal/api-client";
 import type { Course, LessonProgress } from "@/lib/platform/types";
@@ -16,6 +17,8 @@ function embedUrl(url: string) {
 }
 
 function CourseInner({ courseId }: { courseId: string }) {
+  const { profile, asUser } = useAuth();
+  const readOnly = Boolean(asUser && asUser !== profile?.uid);
   const [course, setCourse] = useState<Course | null>(null);
   const [progress, setProg] = useState<LessonProgress[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +34,7 @@ function CourseInner({ courseId }: { courseId: string }) {
         setActive(first || null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, [courseId]);
+  }, [courseId, asUser]);
 
   const done = useMemo(() => new Set(progress.map((p) => p.lessonId)), [progress]);
   const lesson = course?.chapters
@@ -40,7 +43,7 @@ function CourseInner({ courseId }: { courseId: string }) {
   const video = lesson ? embedUrl(lesson.videoUrl) : null;
 
   async function toggleDone() {
-    if (!course || !lesson) return;
+    if (readOnly || !course || !lesson) return;
     setBusy(true);
     try {
       const next = !done.has(lesson.id);
@@ -106,14 +109,18 @@ function CourseInner({ courseId }: { courseId: string }) {
                     </div>
                   )}
                   <p className="learn-body">{lesson.body}</p>
-                  <button
-                    type="button"
-                    className="tb-addbtn"
-                    disabled={busy}
-                    onClick={() => void toggleDone()}
-                  >
-                    {done.has(lesson.id) ? "Markeer als open" : "Markeer als afgerond"}
-                  </button>
+                  {!readOnly ? (
+                    <button
+                      type="button"
+                      className="tb-addbtn"
+                      disabled={busy}
+                      onClick={() => void toggleDone()}
+                    >
+                      {done.has(lesson.id) ? "Markeer als open" : "Markeer als afgerond"}
+                    </button>
+                  ) : (
+                    <p className="pl-sub2">Voortgang van deze student — alleen-lezen.</p>
+                  )}
                 </>
               ) : (
                 <div className="pl-empty">Kies een les.</div>

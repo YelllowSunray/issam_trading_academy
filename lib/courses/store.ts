@@ -141,15 +141,34 @@ export async function setLessonProgress(
 export async function progressCountsByUser(
   uids: string[],
 ): Promise<Map<string, number>> {
+  const ids = await progressLessonIdsByUser(uids);
   const map = new Map<string, number>();
+  ids.forEach((set, uid) => map.set(uid, set.size));
+  return map;
+}
+
+export async function progressLessonIdsByUser(
+  uids: string[],
+): Promise<Map<string, Set<string>>> {
+  const map = new Map<string, Set<string>>();
   await Promise.all(
     uids.map(async (uid) => {
       const snap = await progressCol(uid).get();
-      map.set(uid, snap.size);
+      map.set(uid, new Set(snap.docs.map((d) => d.id)));
       await meter({ reads: Math.max(1, snap.size) });
     }),
   );
   return map;
+}
+
+export function countCompletedCourses(
+  courses: Course[],
+  lessonIds: Set<string>,
+) {
+  return courses.filter((c) => {
+    const lessons = c.chapters.flatMap((ch) => ch.lessons);
+    return lessons.length > 0 && lessons.every((l) => lessonIds.has(l.id));
+  }).length;
 }
 
 export function seedStarterCourse(): Course {
