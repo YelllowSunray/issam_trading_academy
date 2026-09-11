@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { Fraunces, IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Outfit } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const outfit = Outfit({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: "600",
+  weight: ["400", "500", "600", "700"],
 });
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -40,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="nl"
-      className={`${fraunces.variable} ${ibmPlexMono.variable} h-full antialiased`}
+      className={`${outfit.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>{children}</AuthProvider>

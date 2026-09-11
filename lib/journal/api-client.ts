@@ -477,6 +477,19 @@ export async function openBillingPortal() {
   );
 }
 
+export async function fetchMarketTickers() {
+  return parseJson<{
+    tickers: Array<{
+      id: string;
+      symbol: string;
+      badge: string;
+      price: number | null;
+      change24h: number | null;
+    }>;
+    error?: string;
+  }>(await fetch("/api/markets/tickers", { headers: await authHeaders() }));
+}
+
 export async function fetchCryptoMarkets() {
   return parseJson<{ coins: Array<{
     id: string;

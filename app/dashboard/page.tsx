@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { SignalCard } from "@/components/signals/SignalCard";
 import {
   deleteGoal,
   fetchDashboard,
+  fetchMarketNews,
+  fetchMarketTickers,
   saveGoal,
 } from "@/lib/journal/api-client";
+import { tjIsSessionActive } from "@/lib/journal/compute";
 import { fmtEur } from "@/lib/journal/format";
+import { TJ_SESSIONS } from "@/lib/journal/constants";
 import type { GoalItem } from "@/lib/goals/types";
 import type { TradeSignal } from "@/lib/signals/types";
 
@@ -36,32 +40,231 @@ type Dash = {
   goals: GoalItem[];
 };
 
+type Ticker = {
+  id: string;
+  symbol: string;
+  badge: string;
+  price: number | null;
+  change24h: number | null;
+};
+
+type NewsItem = {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string | null;
+};
+
+function greetingNl(hour: number) {
+  if (hour < 12) return "Goedemorgen";
+  if (hour < 18) return "Goedemiddag";
+  return "Goedenavond";
+}
+
+function firstName(value?: string | null) {
+  const name = (value || "").trim();
+  return name.split(/\s+/)[0] || "trader";
+}
+
+function hoursUntil(from: number, to: number) {
+  return (to - from + 24) % 24;
+}
+
+function formatPrice(n: number | null, symbol: string) {
+  if (n == null) return "—";
+  if (symbol.startsWith("XAU") || n >= 1000) {
+    return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  }
+  if (n >= 10) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
+
 function DashboardInner() {
-  const { profile, asUser } = useAuth();
+  const { profile, asUser, coachTarget } = useAuth();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
   const [data, setData] = useState<Dash | null>(null);
+  const [tickers, setTickers] = useState<Ticker[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => new Date());
 
   const load = useCallback(() => {
     fetchDashboard()
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+    fetchMarketTickers()
+      .then((d) => setTickers(d.tickers || []))
+      .catch(() => {});
+    fetchMarketNews()
+      .then((d) => setNews((d.items || []).slice(0, 5)))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     load();
   }, [load, asUser]);
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const amsterdamHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Amsterdam",
+      hour: "numeric",
+      hour12: false,
+    }).format(now),
+  );
+  const utcHour = now.getUTCHours();
+  const name = firstName(
+    readOnly ? coachTarget?.displayName : profile?.displayName,
+  );
+  const amsterdamClock = new Intl.DateTimeFormat("nl-NL", {
+    timeZone: "Europe/Amsterdam",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(now);
+  const utcClock = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(now);
+
+  const sessions = useMemo(() => {
+    const pick = (name: string, label: string) => {
+      const s = TJ_SESSIONS.find((row) => row.name === name);
+      if (!s) return null;
+      const on = tjIsSessionActive(s, utcHour);
+      const hrs = on
+        ? hoursUntil(utcHour, s.end)
+        : hoursUntil(utcHour, s.start);
+      return {
+        label,
+        on,
+        caption: on ? `Open · sluit over ${hrs}u` : `Opent over ${hrs}u`,
+      };
+    };
+    return [
+      pick("London", "London"),
+      pick("New York", "New York"),
+      pick("Sydney", "Sydney"),
+      pick("Tokyo", "Asia"),
+    ].filter((s): s is NonNullable<typeof s> => Boolean(s));
+  }, [utcHour]);
+
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">HUB</p>
-      <h1 className="tj-title">Dashboard</h1>
-      <p className="pl-sub">
-        Laatste signaal, voortgang, community en P&amp;L — één startpunt.
-      </p>
+      <div className="desk-hello">
+        <div>
+          <h1>
+            {greetingNl(amsterdamHour)}, {name}.
+          </h1>
+          <p>Je desk · live markten, journal en academy.</p>
+        </div>
+        <div className="desk-clocks">
+          <div>
+            Amsterdam
+            <strong>{amsterdamClock}</strong>
+          </div>
+          <div>
+            UTC
+            <strong>{utcClock}</strong>
+          </div>
+        </div>
+      </div>
+
       {error && <div className="pl-empty">{error}</div>}
+
+      <div className="session-strip">
+        {sessions.map((s) => (
+          <div key={s.label} className={`session-pill${s.on ? " on" : ""}`}>
+            <div className="name">{s.label}</div>
+            <div className="state">{s.caption}</div>
+          </div>
+        ))}
+      </div>
+
+      {tickers.length ? (
+        <div className="ticker-row">
+          {tickers.map((t) => {
+            const up = (t.change24h ?? 0) >= 0;
+            return (
+              <div key={t.id} className="ticker-card">
+                <div className="sym">
+                  {t.badge} · {t.symbol}
+                </div>
+                <div className="px">{formatPrice(t.price, t.symbol)}</div>
+                <div className={up ? "chg-up" : "chg-down"}>
+                  {t.change24h == null
+                    ? "—"
+                    : `${up ? "+" : ""}${t.change24h.toFixed(2)}%`}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="desk-layout">
+        <section className="tj-panel" style={{ marginBottom: 0 }}>
+          <div className="ttl">Market desk</div>
+          <p className="pl-sub2" style={{ marginBottom: 12 }}>
+            24u-beweging, geen AI-signaal.
+          </p>
+          {tickers.length ? (
+            <div className="bias-grid">
+              {tickers.map((t) => {
+                const up = (t.change24h ?? 0) >= 0;
+                return (
+                  <article key={`${t.id}-bias`} className="bias-card">
+                    <header>
+                      <h3>{t.symbol}</h3>
+                      <span className={up ? "chg-up" : "chg-down"}>
+                        {t.change24h == null
+                          ? "—"
+                          : `${up ? "+" : ""}${t.change24h.toFixed(2)}% · ${up ? "Bullish" : "Bearish"}`}
+                      </span>
+                    </header>
+                    <p className="pl-sub2" style={{ marginTop: 8 }}>
+                      Spot {formatPrice(t.price, t.symbol)}. Bias volgt alleen de
+                      24-uursverandering.
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="pl-sub2">Prijzen laden…</p>
+          )}
+        </section>
+
+        <section className="tj-panel" style={{ marginBottom: 0 }}>
+          <div className="ttl">Capital flow</div>
+          <p className="pl-sub2" style={{ marginBottom: 12 }}>
+            Headlines uit de news-feed.
+          </p>
+          <div className="news-list">
+            {news.map((item) => (
+              <a key={item.id} href={item.url} target="_blank" rel="noreferrer">
+                {item.title}
+                <div className="src">{item.source}</div>
+              </a>
+            ))}
+            {!news.length ? (
+              <p className="pl-sub2">Nog geen headlines geladen.</p>
+            ) : null}
+          </div>
+          <Link href="/news" className="pl-reset-btn" style={{ marginTop: 12 }}>
+            Alle news
+          </Link>
+        </section>
+      </div>
 
       <div className="dash-grid">
         <section className="tj-panel">

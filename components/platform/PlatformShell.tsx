@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { UserMenu } from "@/components/ui/UserMenu";
 import { MEMBERSHIP_LABELS } from "@/lib/auth/membership";
-import { PLATFORM_NAV } from "@/lib/platform/nav";
+import { MOBILE_DOCK, PLATFORM_NAV } from "@/lib/platform/nav";
 import { CoachViewBanner } from "./CoachViewBanner";
+import { NavIcon } from "./NavIcon";
 
 export function PlatformShell({
   children,
@@ -18,45 +18,37 @@ export function PlatformShell({
 }) {
   const pathname = usePathname();
   const { profile } = useAuth();
-  const [open, setOpen] = useState(false);
   const admin = profile?.role === "admin";
   const items = PLATFORM_NAV.filter((item) => !item.adminOnly || admin);
 
   function active(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/settings") return pathname === "/settings";
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
   return (
     <div className="plat-shell">
-      <header className="plat-nav">
-        <Link href="/dashboard" className="tb-brand" onClick={() => setOpen(false)}>
-          Trading<span>Acadamy</span>
+      <aside className="plat-sidebar">
+        <Link href="/dashboard" className="plat-sidebar-brand">
+          <span className="plat-sidebar-mark">TA</span>
+          <span className="plat-sidebar-name">
+            Trading<span>Acadamy</span>
+          </span>
         </Link>
-        <button
-          type="button"
-          className="plat-burger"
-          aria-label="Menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-        <nav className={`plat-links${open ? " open" : ""}`}>
+        <nav className="plat-side-links">
           {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`plat-link${active(item.href) ? " active" : ""}`}
-              onClick={() => setOpen(false)}
+              className={`plat-side-link${active(item.href) ? " active" : ""}`}
             >
+              <NavIcon id={item.icon} />
               {item.label}
             </Link>
           ))}
         </nav>
-        <div className="plat-nav-end">
+        <div className="plat-sidebar-end">
           {profile && (
             <span className="plat-member-chip">
               {admin ? "Admin" : MEMBERSHIP_LABELS[profile.membership]}
@@ -64,11 +56,27 @@ export function PlatformShell({
           )}
           <UserMenu isAdmin={admin} />
         </div>
-      </header>
-      <div className={flush ? "plat-body-flush" : "plat-body"}>
-        <CoachViewBanner />
-        {children}
+      </aside>
+
+      <div className="plat-main">
+        <div className={flush ? "plat-body-flush" : "plat-body"}>
+          <CoachViewBanner />
+          {children}
+        </div>
       </div>
+
+      <nav className="plat-dock" aria-label="Hoofdmenu">
+        {MOBILE_DOCK.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={active(item.href) ? "active" : ""}
+          >
+            <NavIcon id={item.icon} />
+            {item.label}
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }
