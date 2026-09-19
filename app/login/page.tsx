@@ -39,7 +39,7 @@ function mapAuthError(err: unknown): string {
     return "Google-login geannuleerd.";
   }
   if (code.includes("auth/unauthorized-domain")) {
-    return "Dit domein is niet toegestaan voor Google-login. Voeg issam-trading-academy.vercel.app toe onder Firebase → Authentication → Settings → Authorized domains.";
+    return "Dit domein is niet toegestaan voor Google-login. Voeg tradechain.me toe onder Firebase → Authentication → Settings → Authorized domains.";
   }
   if (
     code.includes("auth/operation-not-allowed") ||

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jsonError, withApiError } from "@/lib/api/errors";
 import { requireAuthUser } from "@/lib/auth/request";
+import { appOrigin } from "@/lib/platform/site";
 import { createCustomerPortalSession, isStripeReady } from "@/lib/stripe/server";
 import { getUserProfile } from "@/lib/users/store";
 
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
     if (!profile?.stripeCustomerId) {
       return jsonError("Nog geen Stripe-klant. Start eerst een abonnement.", 400);
     }
-    const origin = new URL(req.url).origin;
+    const origin = appOrigin(req);
     const session = await createCustomerPortalSession({
       customerId: profile.stripeCustomerId,
       returnUrl: `${origin}/settings`,

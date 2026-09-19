@@ -25,7 +25,7 @@ npx firebase deploy --only firestore:rules,storage --project issam-trading-aca
 
 4. Put Admin credentials + web config in `.env.local` (see `.env.example`)
 5. Set `ADMIN_EMAILS` to Issam’s login email(s)
-6. For production Google login: Firebase Console → **Authentication** → **Settings** → **Authorized domains** → add `issam-trading-academy.vercel.app` (and any custom domain). `localhost` is already allowed by default.
+6. For production Google login: Firebase Console → **Authentication** → **Settings** → **Authorized domains** → add `tradechain.me` (and `www.tradechain.me` if you use it). `localhost` is already allowed by default.
 
 ### 2. App
 
@@ -65,11 +65,12 @@ TARGET_UID=<issam-uid> npm run migrate:user
    - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET`
    - `ADMIN_EMAILS`, billing vars
 3. **`FIREBASE_PRIVATE_KEY` tip:** paste the key with literal `\n` newlines. In the Vercel UI, do **not** wrap the whole value in extra `"..."` quotes (that commonly causes API `500`s).
-4. In Firebase → Authentication → Authorized domains, add `issam-trading-academy.vercel.app`
-5. Deploy (redeploy after changing env vars)
-6. Check `https://your-app.vercel.app/api/health` — should return `{ "ok": true }`
-4. Update EA URLs + WebRequest allowlist to the production origin
-5. Add the production domain to Firebase Auth authorized domains
+4. Custom domain: `https://tradechain.me` (optional env `NEXT_PUBLIC_APP_URL=https://tradechain.me`)
+5. In Firebase → Authentication → Authorized domains, add `tradechain.me` and `www.tradechain.me`
+6. Deploy (redeploy after changing env vars)
+7. Check `https://tradechain.me/api/health` — should return `{ "ok": true }`
+8. Update EA URLs + WebRequest allowlist to `https://tradechain.me`
+9. Telegram Login Widget: BotFather `/setdomain` → `tradechain.me`
 
 ## Security model
 

@@ -7,7 +7,7 @@
 //|   2. Compileer in MetaEditor (F7)                                   |
 //|   3. Extra/Tools > Opties > Expert Advisors >                       |
 //|      WebRequest toestaan voor:                                      |
-//|        https://issam-trading-academy.vercel.app                     |
+//|        https://tradechain.me                                        |
 //|   4. Sleep EA op een chart, AutoTrading aan                         |
 //|   5. Verplicht: IngestSecret = secret uit app Instellingen          |
 //|   Lokaal testen: TradeURL/HeartbeatURL naar                         |
@@ -16,8 +16,8 @@
 #property copyright "TradingAcadamy"
 #property strict
 
-input string TradeURL     = "https://issam-trading-academy.vercel.app/api/mt5-trade";
-input string HeartbeatURL = "https://issam-trading-academy.vercel.app/api/heartbeat";
+input string TradeURL     = "https://tradechain.me/api/mt5-trade";
+input string HeartbeatURL = "https://tradechain.me/api/heartbeat";
 input string IngestSecret = "";
 input datetime BackfillFrom = D'2026.01.01 00:00:00';
 input int HeartbeatSeconds = 60;

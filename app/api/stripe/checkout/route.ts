@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { jsonError, withApiError } from "@/lib/api/errors";
 import { requireAuthUser } from "@/lib/auth/request";
 import { isStripeReady, createCheckoutSession } from "@/lib/stripe/server";
+import { appOrigin } from "@/lib/platform/site";
 import { getUserProfile, setStripeIds } from "@/lib/users/store";
 
 export async function POST(req: Request) {
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
         503,
       );
     }
-    const origin = new URL(req.url).origin;
+    const origin = appOrigin(req);
     const body = (await req.json().catch(() => ({}))) as { planId?: string };
     const profile = await getUserProfile(user.uid);
     const session = await createCheckoutSession({
