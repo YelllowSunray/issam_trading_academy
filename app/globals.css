@@ -2363,12 +2363,50 @@ button:focus-visible {
   overflow: hidden;
   background: #000;
 }
-.learn-video iframe {
+.learn-video iframe,
+.learn-video video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
+  background: #000;
+}
+.learn-pdfs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.learn-pdf {
+  color: var(--gold-soft);
+  text-decoration: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--ink-3);
+}
+.learn-pdf:hover {
+  color: var(--paper);
+}
+.learn-lesson-meta {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.course-asset-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.course-asset-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
 }
 .learn-body {
   font-size: 13px;

@@ -11,9 +11,11 @@ function embedUrl(url: string) {
   if (!url) return null;
   const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
   if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
-  const yt = url.match(/(?:youtu\.be\/|v=)([\w-]{6,})/);
+  const yt = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|watch\?.*v=))([\w-]{6,})/,
+  );
   if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
-  return url;
+  return null;
 }
 
 function CourseInner({ courseId }: { courseId: string }) {
@@ -40,7 +42,9 @@ function CourseInner({ courseId }: { courseId: string }) {
   const lesson = course?.chapters
     .flatMap((ch) => ch.lessons)
     .find((l) => l.id === active);
-  const video = lesson ? embedUrl(lesson.videoUrl) : null;
+  const embed = lesson ? embedUrl(lesson.videoUrl) : null;
+  const fileVideo = lesson?.videoFile?.url || "";
+  const pdfs = lesson?.pdfs?.filter((p) => p.url) || [];
 
   async function toggleDone() {
     if (readOnly || !course || !lesson) return;
@@ -84,6 +88,12 @@ function CourseInner({ courseId }: { courseId: string }) {
                       onClick={() => setActive(l.id)}
                     >
                       <span>{l.title}</span>
+                      <span className="learn-lesson-meta">
+                        {l.videoFile || embedUrl(l.videoUrl) ? "video" : ""}
+                        {(l.pdfs || []).length
+                          ? `${l.videoFile || embedUrl(l.videoUrl) ? " · " : ""}${(l.pdfs || []).length} pdf`
+                          : ""}
+                      </span>
                       {done.has(l.id) ? <span className="status-chip on">klaar</span> : null}
                     </button>
                   ))}
@@ -94,10 +104,14 @@ function CourseInner({ courseId }: { courseId: string }) {
               {lesson ? (
                 <>
                   <h2 className="pl-title">{lesson.title}</h2>
-                  {video ? (
+                  {fileVideo ? (
+                    <div className="learn-video">
+                      <video src={fileVideo} controls playsInline preload="metadata" />
+                    </div>
+                  ) : embed ? (
                     <div className="learn-video">
                       <iframe
-                        src={video}
+                        src={embed}
                         title={lesson.title}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
@@ -105,9 +119,25 @@ function CourseInner({ courseId }: { courseId: string }) {
                     </div>
                   ) : (
                     <div className="pl-empty" style={{ marginBottom: 14 }}>
-                      Geen video — tekstles.
+                      Geen video bij deze les.
                     </div>
                   )}
+                  {pdfs.length ? (
+                    <div className="learn-pdfs">
+                      <div className="ttl">PDF-materiaal</div>
+                      {pdfs.map((pdf) => (
+                        <a
+                          key={pdf.path || pdf.url}
+                          href={pdf.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="learn-pdf"
+                        >
+                          {pdf.name || "PDF"}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                   <p className="learn-body">{lesson.body}</p>
                   {!readOnly ? (
                     <button

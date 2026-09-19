@@ -29,7 +29,7 @@ function LearnInner() {
       <p className="tj-eyebrow">ACADEMY</p>
       <h1 className="tj-title">Cursussen</h1>
       <p className="pl-sub">
-        Video + korte samenvatting per les. Voortgang wordt per account
+        Video, PDF en korte samenvatting per les. Voortgang wordt per account
         bijgehouden.
       </p>
       <Link href="/learn/certificates" className="pl-reset-btn" style={{ marginBottom: 16 }}>

@@ -2,7 +2,12 @@ import type { AuthUser, MembershipStatus, UserProfile } from "@/lib/auth/types";
 import type { BacktestEntry } from "@/lib/backtest/types";
 import type { GoalItem } from "@/lib/goals/types";
 import type { VipPlan, VipPlanId } from "@/lib/platform/plans";
-import type { Course, LessonProgress, PlatformSettings } from "@/lib/platform/types";
+import type {
+  Course,
+  CourseAsset,
+  LessonProgress,
+  PlatformSettings,
+} from "@/lib/platform/types";
 import type { TradeSignal } from "@/lib/signals/types";
 import type { AdminOverview, MemberRow } from "@/lib/platform/types";
 import type {
@@ -245,6 +250,60 @@ export async function fetchCourses() {
 export async function fetchCourse(id: string) {
   return parseJson<Course>(
     await fetch(`/api/courses/${id}`, { headers: await authHeaders() }),
+  );
+}
+
+export async function uploadCourseAsset(
+  kind: "pdf" | "video",
+  file: File,
+): Promise<CourseAsset> {
+  const started = await parseJson<{
+    path: string;
+    name: string;
+    contentType: string;
+    uploadUrl?: string;
+    url?: string;
+  }>(
+    await fetch("/api/admin/course-assets", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify({
+        kind,
+        filename: file.name,
+        contentType: file.type,
+        size: file.size,
+      }),
+    }),
+  );
+  if (started.uploadUrl) {
+    const put = await fetch(started.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": started.contentType || file.type },
+      body: file,
+    });
+    if (put.ok) {
+      return {
+        path: started.path,
+        name: started.name || file.name,
+        contentType: started.contentType || file.type,
+        url: started.url,
+      };
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      throw new Error(
+        "Directe upload geblokkeerd (storage CORS). Zet CORS op de Firebase-bucket of gebruik een kleiner bestand.",
+      );
+    }
+  }
+  const form = new FormData();
+  form.set("kind", kind);
+  form.set("file", file);
+  return parseJson<CourseAsset>(
+    await fetch("/api/admin/course-assets", {
+      method: "POST",
+      headers: await authHeaders(),
+      body: form,
+    }),
   );
 }
 

@@ -14,6 +14,7 @@ import {
   fetchSignals,
   saveAdminCourse,
   saveAdminSignal,
+  uploadCourseAsset,
   savePlatformSettings,
   seedStarterCourse,
   setAdminMembership,
@@ -31,6 +32,8 @@ import type { TradeSignal } from "@/lib/signals/types";
 import type {
   AdminOverview,
   Course,
+  CourseAsset,
+  CourseLesson,
   MemberRow,
   PlatformSettings,
 } from "@/lib/platform/types";
@@ -1377,6 +1380,9 @@ function CoursesTab({
     <>
       <section className="tj-panel">
         <div className="ttl">Cursussen</div>
+        <p className="pl-sub2" style={{ marginBottom: 12 }}>
+          Per les: YouTube/Vimeo, geüploade video (MP4/WebM) en PDF’s.
+        </p>
         <form onSubmit={(e) => void create(e)} className="plat-inline-form">
           <input
             className="tj-input"
@@ -1469,6 +1475,49 @@ function CourseEditor({
 }) {
   const [draft, setDraft] = useState<Course>(course);
   const [busy, setBusy] = useState(false);
+  const [uploadKey, setUploadKey] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  function patchLesson(
+    chapterIndex: number,
+    lessonIndex: number,
+    patch: Partial<CourseLesson>,
+  ) {
+    setDraft((c) => {
+      const chapters = [...c.chapters];
+      const chapter = chapters[chapterIndex];
+      const lessons = [...chapter.lessons];
+      lessons[lessonIndex] = { ...lessons[lessonIndex], ...patch };
+      chapters[chapterIndex] = { ...chapter, lessons };
+      return { ...c, chapters };
+    });
+  }
+
+  async function onUpload(
+    kind: "pdf" | "video",
+    file: File,
+    chapterIndex: number,
+    lessonIndex: number,
+    lesson: CourseLesson,
+  ) {
+    const key = `${lesson.id}:${kind}:${file.name}`;
+    setUploadKey(key);
+    setUploadError(null);
+    try {
+      const asset = await uploadCourseAsset(kind, file);
+      if (kind === "video") {
+        patchLesson(chapterIndex, lessonIndex, { videoFile: asset });
+      } else {
+        patchLesson(chapterIndex, lessonIndex, {
+          pdfs: [...(lesson.pdfs || []), asset],
+        });
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload mislukt");
+    } finally {
+      setUploadKey(null);
+    }
+  }
 
   function addChapter() {
     setDraft((c) => ({
@@ -1498,6 +1547,8 @@ function CourseEditor({
                   id: crypto.randomUUID(),
                   title: "Nieuwe les",
                   videoUrl: "",
+                  videoFile: null,
+                  pdfs: [],
                   body: "",
                   order: ch.lessons.length + 1,
                 },
@@ -1552,40 +1603,92 @@ function CourseEditor({
               <input
                 className="tj-input"
                 value={l.title}
-                onChange={(e) => {
-                  const chapters = [...draft.chapters];
-                  const lessons = [...ch.lessons];
-                  lessons[j] = { ...l, title: e.target.value };
-                  chapters[i] = { ...ch, lessons };
-                  setDraft({ ...draft, chapters });
-                }}
+                onChange={(e) => patchLesson(i, j, { title: e.target.value })}
               />
               <input
                 className="tj-input"
                 style={{ marginTop: 6 }}
-                placeholder="Vimeo / YouTube URL"
+                placeholder="Vimeo / YouTube URL (optioneel)"
                 value={l.videoUrl}
-                onChange={(e) => {
-                  const chapters = [...draft.chapters];
-                  const lessons = [...ch.lessons];
-                  lessons[j] = { ...l, videoUrl: e.target.value };
-                  chapters[i] = { ...ch, lessons };
-                  setDraft({ ...draft, chapters });
-                }}
+                onChange={(e) => patchLesson(i, j, { videoUrl: e.target.value })}
               />
+              <div className="course-asset-row">
+                <label className="pl-reset-btn">
+                  {uploadKey?.startsWith(`${l.id}:video:`)
+                    ? "Video laden…"
+                    : "Upload video (MP4/WebM)"}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                    hidden
+                    disabled={Boolean(uploadKey)}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void onUpload("video", file, i, j, l);
+                    }}
+                  />
+                </label>
+                {l.videoFile ? (
+                  <span className="pl-sub2">
+                    {l.videoFile.name}
+                    <button
+                      type="button"
+                      className="pl-reset-btn"
+                      style={{ marginLeft: 8 }}
+                      onClick={() => patchLesson(i, j, { videoFile: null })}
+                    >
+                      Weg
+                    </button>
+                  </span>
+                ) : (
+                  <span className="pl-sub2">of plak hierboven een YouTube/Vimeo-link</span>
+                )}
+              </div>
+              <div className="course-asset-row">
+                <label className="pl-reset-btn">
+                  Upload PDF
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    hidden
+                    disabled={Boolean(uploadKey)}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void onUpload("pdf", file, i, j, l);
+                    }}
+                  />
+                </label>
+                <span className="pl-sub2">
+                  {(l.pdfs || []).length
+                    ? `${l.pdfs!.length} PDF${l.pdfs!.length === 1 ? "" : "s"}`
+                    : "Slides, notes, homework"}
+                </span>
+              </div>
+              {(l.pdfs || []).map((pdf: CourseAsset) => (
+                <div key={pdf.path || pdf.url} className="course-asset-item">
+                  {pdf.name}
+                  <button
+                    type="button"
+                    className="pl-reset-btn"
+                    onClick={() =>
+                      patchLesson(i, j, {
+                        pdfs: (l.pdfs || []).filter((p) => p !== pdf),
+                      })
+                    }
+                  >
+                    Weg
+                  </button>
+                </div>
+              ))}
               <textarea
                 className="tj-input"
                 style={{ marginTop: 6 }}
                 rows={2}
                 placeholder="Samenvatting"
                 value={l.body}
-                onChange={(e) => {
-                  const chapters = [...draft.chapters];
-                  const lessons = [...ch.lessons];
-                  lessons[j] = { ...l, body: e.target.value };
-                  chapters[i] = { ...ch, lessons };
-                  setDraft({ ...draft, chapters });
-                }}
+                onChange={(e) => patchLesson(i, j, { body: e.target.value })}
               />
             </div>
           ))}
@@ -1594,6 +1697,8 @@ function CourseEditor({
           </button>
         </div>
       ))}
+      {uploadError && <div className="pl-empty">{uploadError}</div>}
+      {uploadKey && <p className="pl-sub2">Bestand uploaden… even wachten.</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
         <button type="button" className="pl-reset-btn" onClick={addChapter}>
           + Hoofdstuk

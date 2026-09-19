@@ -4,10 +4,12 @@ import { trackUsage } from "@/lib/billing/meter";
 import { adminDb } from "@/lib/firebase/admin";
 import type {
   Course,
+  CourseAsset,
   CourseChapter,
   CourseLesson,
   LessonProgress,
 } from "@/lib/platform/types";
+import { hydrateCourseAssets } from "./assets";
 
 async function meter(delta: Parameters<typeof trackUsage>[0]) {
   try {
@@ -48,15 +50,19 @@ export async function listCourses(opts: { publishedOnly?: boolean } = {}) {
   const courses = snap.docs
     .map((d) => asCourse(d.id, d.data() as Record<string, unknown>))
     .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, "nl"));
-  if (opts.publishedOnly) return courses.filter((c) => c.published);
-  return courses;
+  const visible = opts.publishedOnly
+    ? courses.filter((c) => c.published)
+    : courses;
+  return Promise.all(visible.map((c) => hydrateCourseAssets(c)));
 }
 
 export async function getCourse(id: string): Promise<Course | null> {
   const snap = await coursesCol().doc(id).get();
   await meter({ reads: 1 });
   if (!snap.exists) return null;
-  return asCourse(snap.id, (snap.data() || {}) as Record<string, unknown>);
+  return hydrateCourseAssets(
+    asCourse(snap.id, (snap.data() || {}) as Record<string, unknown>),
+  );
 }
 
 export async function saveCourse(
@@ -100,11 +106,29 @@ function normalizeChapters(chapters: CourseChapter[]): CourseChapter[] {
     .sort((a, b) => a.order - b.order);
 }
 
+function normalizeAsset(raw: unknown): CourseAsset | null {
+  if (!raw || typeof raw !== "object") return null;
+  const a = raw as CourseAsset;
+  const path = String(a.path || "").trim();
+  const url = String(a.url || "").trim();
+  if (!path && !url) return null;
+  return {
+    path,
+    name: String(a.name || "bestand").trim() || "bestand",
+    contentType: String(a.contentType || "").trim(),
+    url,
+  };
+}
+
 function normalizeLesson(lesson: CourseLesson, index: number): CourseLesson {
   return {
     id: lesson.id || randomUUID(),
     title: (lesson.title || `Les ${index + 1}`).trim(),
     videoUrl: (lesson.videoUrl || "").trim(),
+    videoFile: normalizeAsset(lesson.videoFile) || null,
+    pdfs: (lesson.pdfs || [])
+      .map((item) => normalizeAsset(item))
+      .filter((item): item is CourseAsset => Boolean(item)),
     body: lesson.body || "",
     order: lesson.order ?? index,
   };

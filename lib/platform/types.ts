@@ -1,9 +1,18 @@
 import type { MembershipStatus } from "@/lib/auth/types";
 
+export type CourseAsset = {
+  path: string;
+  name: string;
+  contentType: string;
+  url?: string;
+};
+
 export type CourseLesson = {
   id: string;
   title: string;
   videoUrl: string;
+  videoFile?: CourseAsset | null;
+  pdfs?: CourseAsset[];
   body: string;
   order: number;
 };
