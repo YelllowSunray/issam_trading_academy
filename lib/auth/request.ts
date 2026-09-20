@@ -8,6 +8,7 @@ import {
   getUserProfile,
   toAuthUser,
 } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 type AuthOptions = {
   /** Skip project-wide billing kill-switch (status/unlock routes). */
@@ -96,7 +97,7 @@ export async function requireSelfUid(
 ): Promise<string> {
   const uid = await resolveTargetUid(req, self);
   if (uid !== self.uid) {
-    throw new ApiError("Coach-view is alleen-lezen", 403);
+    throw new ApiError(await tRequest("api.coachViewReadOnly"), 403);
   }
   return uid;
 }

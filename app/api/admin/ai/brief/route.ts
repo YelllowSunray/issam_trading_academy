@@ -10,9 +10,9 @@ export const maxDuration = 30;
 export async function POST(req: Request) {
   return withApiError(async () => {
     const admin = await requireAdmin(req);
-    if (!groqConfigured()) return jsonError("Groq is niet geconfigureerd", 500);
+    if (!groqConfigured()) return jsonError("Groq is not configured", 500);
     const body = (await req.json()) as { uid?: string };
-    if (!body.uid) return jsonError("uid verplicht");
+    if (!body.uid) return jsonError("uid required");
     const profile = await getUserProfile(body.uid);
     if (!profile) return jsonError("user not found", 404);
     const bodyText = await coachBrief(

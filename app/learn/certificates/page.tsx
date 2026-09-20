@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useI18n } from "@/components/i18n/LocaleProvider";
 import { fetchCourses, fetchProgress } from "@/lib/journal/api-client";
+import { dateLocale } from "@/lib/i18n";
 import type { Course, LessonProgress } from "@/lib/platform/types";
 
 function completedCourses(courses: Course[], progress: LessonProgress[]) {
@@ -17,6 +19,7 @@ function completedCourses(courses: Course[], progress: LessonProgress[]) {
 
 function CertificatesInner() {
   const { profile, asUser, coachTarget } = useAuth();
+  const { t, locale } = useI18n();
   const [courses, setCourses] = useState<Course[]>([]);
   const [progress, setProgress] = useState<LessonProgress[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +31,8 @@ function CertificatesInner() {
         setCourses(c);
         setProgress(p);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, [asUser]);
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
+  }, [asUser, t]);
 
   const done = useMemo(
     () => completedCourses(courses, progress),
@@ -39,21 +42,15 @@ function CertificatesInner() {
 
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">ACADEMY</p>
-      <h1 className="tj-title">Certificates</h1>
-      <p className="pl-sub">
-        Na afronden van alle lessen in een cursus. Print of sla op als PDF via
-        je browser.
-      </p>
+      <p className="tj-eyebrow">{t("learn.eyebrow")}</p>
+      <h1 className="tj-title">{t("learn.certTitle")}</h1>
+      <p className="pl-sub">{t("learn.certLead")}</p>
       <Link href="/learn" className="pl-reset-btn" style={{ marginBottom: 16 }}>
-        ← Terug naar academy
+        {t("learn.backAcademy")}
       </Link>
       {error && <div className="pl-empty">{error}</div>}
       {!done.length && !error ? (
-        <div className="pl-empty">
-          Nog geen cursus afgerond. Rond alle lessen af om een certificaat te
-          ontgrendelen.
-        </div>
+        <div className="pl-empty">{t("learn.noCert")}</div>
       ) : null}
       {done.length > 1 ? (
         <div className="plat-chip-row" style={{ marginBottom: 16 }}>
@@ -71,18 +68,16 @@ function CertificatesInner() {
       ) : null}
       {active ? (
         <div className="cert-sheet">
-          <p className="cert-kicker">TradingAcadamy</p>
-          <h2>Certificaat</h2>
+          <p className="cert-kicker">Tradechain</p>
+          <h2>{t("learn.certificate")}</h2>
           <p className="cert-name">
             {asUser && coachTarget
               ? coachTarget.displayName
               : profile?.displayName || "Trader"}
           </p>
-          <p>
-            heeft de cursus <strong>{active.title}</strong> afgerond.
-          </p>
+          <p>{t("learn.completed", { title: active.title })}</p>
           <p className="cert-date">
-            {new Date().toLocaleDateString("nl-NL", {
+            {new Date().toLocaleDateString(dateLocale(locale), {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -93,7 +88,7 @@ function CertificatesInner() {
             className="tb-addbtn no-print"
             onClick={() => window.print()}
           >
-            Print / PDF
+            {t("learn.print")}
           </button>
         </div>
       ) : null}

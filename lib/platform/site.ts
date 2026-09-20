@@ -1,6 +1,7 @@
 /** Canonical production domain. */
 export const SITE_HOST = "tradechain.me";
 export const SITE_URL = `https://${SITE_HOST}`;
+export const SITE_NAME = "Tradechain";
 
 export function publicSiteUrl() {
   const fromEnv = (

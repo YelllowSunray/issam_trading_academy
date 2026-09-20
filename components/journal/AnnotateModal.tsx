@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { TJ_SMC_TAGS } from "@/lib/journal/constants";
-import { fmtEur } from "@/lib/journal/format";
+import { fmtEur, labelInstrument } from "@/lib/journal/format";
 import { tradeImageUrls, type Mt5Trade, type TradeAnnotation } from "@/lib/journal/types";
 import { ImageField } from "./ImageField";
 import { IconX } from "./icons";
@@ -18,6 +19,7 @@ export function AnnotateModal({
   onClose: () => void;
   onSave: (ann: TradeAnnotation) => Promise<void>;
 }) {
+  const t = useT();
   const [tags, setTags] = useState(initial.tags || []);
   const [notes, setNotes] = useState(initial.notes || "");
   const [images, setImages] = useState(() => tradeImageUrls(initial));
@@ -36,22 +38,23 @@ export function AnnotateModal({
     >
       <div className="tj-modal" onClick={(e) => e.stopPropagation()}>
         <div className="tj-modal-head">
-          <div>MT5 trade annoteren</div>
+          <div>{t("journal.annotate")}</div>
           <button type="button" onClick={onClose}>
             <IconX />
           </button>
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Trade</div>
+          <div className="lbl">{t("journal.trade")}</div>
           <div style={{ fontSize: 13, color: "var(--paper-dim)" }}>
-            {trade.date} · {trade.instrument} {trade.direction} ·{" "}
+            {trade.date} · {labelInstrument(trade.instrument, t("journal.other"))}{" "}
+            {trade.direction} ·{" "}
             <span style={{ color: eurColor, fontWeight: 700 }}>{eurTxt}</span>
           </div>
         </div>
 
         <div className="tj-field">
-          <div className="lbl">SMC setup</div>
+          <div className="lbl">{t("journal.smcSetup")}</div>
           <div className="tj-tagrow">
             {TJ_SMC_TAGS.map((tag) => {
               const active = tags.includes(tag);
@@ -62,7 +65,7 @@ export function AnnotateModal({
                   className={`tj-tagbtn${active ? " active" : ""}`}
                   onClick={() =>
                     setTags((prev) =>
-                      active ? prev.filter((t) => t !== tag) : [...prev, tag],
+                      active ? prev.filter((item) => item !== tag) : [...prev, tag],
                     )
                   }
                 >
@@ -74,18 +77,18 @@ export function AnnotateModal({
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Notities</div>
+          <div className="lbl">{t("journal.notes")}</div>
           <textarea
             className="tj-input"
             style={{ minHeight: 70, resize: "vertical" }}
-            placeholder="Bias, reden voor entry, evaluatie..."
+            placeholder={t("journal.annotatePlaceholder")}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Setup screenshots</div>
+          <div className="lbl">{t("journal.screenshots")}</div>
           <ImageField images={images} onChange={setImages} />
         </div>
 
@@ -107,7 +110,7 @@ export function AnnotateModal({
             }
           }}
         >
-          {saving ? "Opslaan…" : "Opslaan"}
+          {saving ? t("common.saving") : t("common.save")}
         </button>
       </div>
     </div>

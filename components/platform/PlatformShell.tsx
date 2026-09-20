@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { UserMenu } from "@/components/ui/UserMenu";
-import { MEMBERSHIP_LABELS } from "@/lib/auth/membership";
 import { MOBILE_DOCK, PLATFORM_NAV } from "@/lib/platform/nav";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { CoachViewBanner } from "./CoachViewBanner";
 import { NavIcon } from "./NavIcon";
 
@@ -18,8 +19,19 @@ export function PlatformShell({
 }) {
   const pathname = usePathname();
   const { profile } = useAuth();
+  const t = useT();
   const admin = profile?.role === "admin";
   const items = PLATFORM_NAV.filter((item) => !item.adminOnly || admin);
+  const navLabel: Record<string, string> = {
+    "/dashboard": t("nav.dashboard"),
+    "/signals": t("nav.signals"),
+    "/journal": t("nav.journal"),
+    "/learn": t("nav.academy"),
+    "/crypto": t("nav.crypto"),
+    "/community": t("nav.community"),
+    "/admin": t("nav.admin"),
+    "/settings": t("nav.profile"),
+  };
 
   function active(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -31,9 +43,9 @@ export function PlatformShell({
     <div className="plat-shell">
       <aside className="plat-sidebar">
         <Link href="/dashboard" className="plat-sidebar-brand">
-          <span className="plat-sidebar-mark">TA</span>
+          <span className="plat-sidebar-mark">TC</span>
           <span className="plat-sidebar-name">
-            Trading<span>Acadamy</span>
+            Trade<span>chain</span>
           </span>
         </Link>
         <nav className="plat-side-links">
@@ -44,17 +56,18 @@ export function PlatformShell({
               className={`plat-side-link${active(item.href) ? " active" : ""}`}
             >
               <NavIcon id={item.icon} />
-              {item.label}
+              {navLabel[item.href] || item.label}
             </Link>
           ))}
         </nav>
         <div className="plat-sidebar-end">
           {profile && (
             <span className="plat-member-chip">
-              {admin ? "Admin" : MEMBERSHIP_LABELS[profile.membership]}
+              {admin ? t("common.admin") : t(`membership.${profile.membership}`)}
             </span>
           )}
           <UserMenu isAdmin={admin} />
+          <LanguageSwitcher />
         </div>
       </aside>
 
@@ -65,7 +78,7 @@ export function PlatformShell({
         </div>
       </div>
 
-      <nav className="plat-dock" aria-label="Hoofdmenu">
+      <nav className="plat-dock" aria-label={t("nav.mainMenu")}>
         {MOBILE_DOCK.map((item) => (
           <Link
             key={item.href}
@@ -73,7 +86,7 @@ export function PlatformShell({
             className={active(item.href) ? "active" : ""}
           >
             <NavIcon id={item.icon} />
-            {item.label}
+            {navLabel[item.href] || item.label}
           </Link>
         ))}
       </nav>

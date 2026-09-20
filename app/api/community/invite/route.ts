@@ -4,6 +4,7 @@ import { isVipTelegramTier } from "@/lib/auth/membership";
 import { requireAuthUser, resolveTargetUid } from "@/lib/auth/request";
 import { VIP_PUBLIC_CHANNEL } from "@/lib/platform/plans";
 import { getPlatformSettings } from "@/lib/platform/settings";
+import { tRequest } from "@/lib/i18n/server";
 import { createChatInviteLink, telegramConfigured } from "@/lib/telegram/bot";
 import {
   getUserProfile,
@@ -82,10 +83,7 @@ export async function GET(req: Request) {
         expiresAt: null,
       });
     } else {
-      return jsonError(
-        "Telegram-groepen zijn nog niet ingesteld. Vraag Issam (Admin → Community).",
-        503,
-      );
+      return jsonError(await tRequest("api.telegramGroups"), 503);
     }
 
     return NextResponse.json({

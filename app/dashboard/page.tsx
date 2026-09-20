@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useI18n } from "@/components/i18n/LocaleProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { SignalCard } from "@/components/signals/SignalCard";
 import {
@@ -56,15 +57,15 @@ type NewsItem = {
   publishedAt: string | null;
 };
 
-function greetingNl(hour: number) {
-  if (hour < 12) return "Goedemorgen";
-  if (hour < 18) return "Goedemiddag";
-  return "Goedenavond";
+function greeting(hour: number, t: (key: string) => string) {
+  if (hour < 12) return t("dashboard.morning");
+  if (hour < 18) return t("dashboard.afternoon");
+  return t("dashboard.evening");
 }
 
-function firstName(value?: string | null) {
+function firstName(value?: string | null, fallback = "trader") {
   const name = (value || "").trim();
-  return name.split(/\s+/)[0] || "trader";
+  return name.split(/\s+/)[0] || fallback;
 }
 
 function hoursUntil(from: number, to: number) {
@@ -82,6 +83,7 @@ function formatPrice(n: number | null, symbol: string) {
 
 function DashboardInner() {
   const { profile, asUser, coachTarget } = useAuth();
+  const { t, locale } = useI18n();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
   const [data, setData] = useState<Dash | null>(null);
   const [tickers, setTickers] = useState<Ticker[]>([]);
@@ -94,14 +96,14 @@ function DashboardInner() {
   const load = useCallback(() => {
     fetchDashboard()
       .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
     fetchMarketTickers()
       .then((d) => setTickers(d.tickers || []))
       .catch(() => {});
     fetchMarketNews()
       .then((d) => setNews((d.items || []).slice(0, 5)))
       .catch(() => {});
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -122,8 +124,9 @@ function DashboardInner() {
   const utcHour = now.getUTCHours();
   const name = firstName(
     readOnly ? coachTarget?.displayName : profile?.displayName,
+    t("dashboard.trader"),
   );
-  const amsterdamClock = new Intl.DateTimeFormat("nl-NL", {
+  const amsterdamClock = new Intl.DateTimeFormat(locale === "nl" ? "nl-NL" : "en-GB", {
     timeZone: "Europe/Amsterdam",
     hour: "2-digit",
     minute: "2-digit",
@@ -147,7 +150,9 @@ function DashboardInner() {
       return {
         label,
         on,
-        caption: on ? `Open · sluit over ${hrs}u` : `Opent over ${hrs}u`,
+        caption: on
+          ? t("dashboard.sessionOpen", { hrs })
+          : t("dashboard.sessionClosed", { hrs }),
       };
     };
     return [
@@ -156,16 +161,16 @@ function DashboardInner() {
       pick("Sydney", "Sydney"),
       pick("Tokyo", "Asia"),
     ].filter((s): s is NonNullable<typeof s> => Boolean(s));
-  }, [utcHour]);
+  }, [utcHour, t]);
 
   return (
     <div className="journal-main">
       <div className="desk-hello">
         <div>
           <h1>
-            {greetingNl(amsterdamHour)}, {name}.
+            {greeting(amsterdamHour, t)}, {name}.
           </h1>
-          <p>Je desk · live markten, journal en academy.</p>
+          <p>{t("dashboard.desk")}</p>
         </div>
         <div className="desk-clocks">
           <div>
@@ -213,41 +218,40 @@ function DashboardInner() {
 
       <div className="desk-layout">
         <section className="tj-panel" style={{ marginBottom: 0 }}>
-          <div className="ttl">Market desk</div>
+          <div className="ttl">{t("dashboard.marketDesk")}</div>
           <p className="pl-sub2" style={{ marginBottom: 12 }}>
-            24u-beweging, geen AI-signaal.
+            {t("dashboard.marketLead")}
           </p>
           {tickers.length ? (
             <div className="bias-grid">
-              {tickers.map((t) => {
-                const up = (t.change24h ?? 0) >= 0;
+              {tickers.map((row) => {
+                const up = (row.change24h ?? 0) >= 0;
                 return (
-                  <article key={`${t.id}-bias`} className="bias-card">
+                  <article key={`${row.id}-bias`} className="bias-card">
                     <header>
-                      <h3>{t.symbol}</h3>
+                      <h3>{row.symbol}</h3>
                       <span className={up ? "chg-up" : "chg-down"}>
-                        {t.change24h == null
+                        {row.change24h == null
                           ? "—"
-                          : `${up ? "+" : ""}${t.change24h.toFixed(2)}% · ${up ? "Bullish" : "Bearish"}`}
+                          : `${up ? "+" : ""}${row.change24h.toFixed(2)}% · ${up ? "Bullish" : "Bearish"}`}
                       </span>
                     </header>
                     <p className="pl-sub2" style={{ marginTop: 8 }}>
-                      Spot {formatPrice(t.price, t.symbol)}. Bias volgt alleen de
-                      24-uursverandering.
+                      {t("dashboard.bias", { price: formatPrice(row.price, row.symbol) })}
                     </p>
                   </article>
                 );
               })}
             </div>
           ) : (
-            <p className="pl-sub2">Prijzen laden…</p>
+            <p className="pl-sub2">{t("dashboard.pricesLoading")}</p>
           )}
         </section>
 
         <section className="tj-panel" style={{ marginBottom: 0 }}>
-          <div className="ttl">Capital flow</div>
+          <div className="ttl">{t("dashboard.capitalFlow")}</div>
           <p className="pl-sub2" style={{ marginBottom: 12 }}>
-            Headlines uit de news-feed.
+            {t("dashboard.headlinesLead")}
           </p>
           <div className="news-list">
             {news.map((item) => (
@@ -257,46 +261,53 @@ function DashboardInner() {
               </a>
             ))}
             {!news.length ? (
-              <p className="pl-sub2">Nog geen headlines geladen.</p>
+              <p className="pl-sub2">{t("dashboard.noHeadlines")}</p>
             ) : null}
           </div>
           <Link href="/news" className="pl-reset-btn" style={{ marginTop: 12 }}>
-            Alle news
+            {t("dashboard.allNews")}
           </Link>
         </section>
       </div>
 
       <div className="dash-grid">
         <section className="tj-panel">
-          <div className="ttl">Laatste signaal</div>
+          <div className="ttl">{t("dashboard.lastSignal")}</div>
           {data?.lastSignal ? (
             <>
               <SignalCard signal={data.lastSignal} compact />
               <Link href="/signals" className="pl-reset-btn" style={{ marginTop: 10 }}>
-                Alle signalen
+                {t("dashboard.allSignals")}
               </Link>
             </>
           ) : (
-            <p className="pl-sub2">Nog geen signalen. Issam plaatst ze in Admin.</p>
+            <p className="pl-sub2">{t("dashboard.noSignals")}</p>
           )}
         </section>
 
         <section className="tj-panel">
           <div className="ttl">Academy</div>
           <p className="pl-value" style={{ margin: "8px 0" }}>
-            {data ? `${data.academy.completed}/${data.academy.total}` : "—"} lessen
+            {data
+              ? t("dashboard.academyLessons", {
+                  done: data.academy.completed,
+                  total: data.academy.total,
+                })
+              : "—"}
           </p>
           {data?.academy.nextCourseTitle ? (
-            <p className="pl-sub2">Volgende: {data.academy.nextCourseTitle}</p>
+            <p className="pl-sub2">
+              {t("dashboard.next", { title: data.academy.nextCourseTitle })}
+            </p>
           ) : (
-            <p className="pl-sub2">Alle gepubliceerde lessen afgerond.</p>
+            <p className="pl-sub2">{t("dashboard.allDone")}</p>
           )}
           <div className="plat-chip-row" style={{ marginTop: 12 }}>
             <Link href="/learn" className="tb-addbtn" style={{ textDecoration: "none" }}>
-              Open academy
+              {t("dashboard.openAcademy")}
             </Link>
             <Link href="/learn/certificates" className="pl-reset-btn">
-              Certificates
+              {t("coach.certificates")}
             </Link>
           </div>
         </section>
@@ -305,12 +316,18 @@ function DashboardInner() {
           <div className="ttl">Community</div>
           <p className="pl-sub2">
             {data?.community.linked
-              ? `Telegram @${data.community.telegramUsername || "gekoppeld"} · ${data.community.tier === "vip" ? "VIP-groep" : "normale groep"}`
-              : "Koppel Telegram voor je persoonlijke groepsinvite."}
+              ? t("dashboard.communityLinked", {
+                  user: data.community.telegramUsername || t("dashboard.linked"),
+                  tier:
+                    data.community.tier === "vip"
+                      ? t("dashboard.vipGroup")
+                      : t("dashboard.normalGroup"),
+                })
+              : t("dashboard.communityUnlinked")}
           </p>
           <div className="plat-chip-row" style={{ marginTop: 12 }}>
             <Link href="/community" className="tb-addbtn" style={{ textDecoration: "none" }}>
-              Open community
+              {t("dashboard.openCommunity")}
             </Link>
             {data?.community.publicChannel ? (
               <a
@@ -319,20 +336,22 @@ function DashboardInner() {
                 rel="noreferrer"
                 className="pl-reset-btn"
               >
-                Publieke channel
+                {t("dashboard.publicChannel")}
               </a>
             ) : null}
           </div>
         </section>
 
         <section className="tj-panel">
-          <div className="ttl">P&amp;L snapshot</div>
+          <div className="ttl">{t("dashboard.pnlSnapshot")}</div>
           <p className="pl-value" style={{ margin: "8px 0" }}>
             {data?.pnl.totalEur != null ? fmtEur(data.pnl.totalEur) : "—"}
           </p>
           <p className="pl-sub2">
-            {data?.pnl.tradeCount ?? 0} trades
-            {data?.pnl.lastDate ? ` · laatst ${data.pnl.lastDate}` : ""}
+            {data?.pnl.tradeCount ?? 0} {t("common.trades")}
+            {data?.pnl.lastDate
+              ? t("dashboard.lastOn", { date: data.pnl.lastDate })
+              : ""}
           </p>
           <Link href="/journal#dashboard" className="pl-reset-btn" style={{ marginTop: 12 }}>
             Journal &amp; P&amp;L
@@ -341,9 +360,9 @@ function DashboardInner() {
       </div>
 
       <section className="tj-panel" style={{ marginTop: 16 }}>
-        <div className="ttl">Goals &amp; checkpoints</div>
+        <div className="ttl">{t("dashboard.goalsTitle")}</div>
         <p className="pl-sub2" style={{ marginBottom: 12 }}>
-          Korte tracker. Geen aparte pagina.
+          {t("dashboard.goalsLead")}
         </p>
         {!readOnly ? (
           <form
@@ -365,10 +384,10 @@ function DashboardInner() {
               className="tj-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Nieuw checkpoint…"
+              placeholder={t("dashboard.goalPlaceholder")}
             />
             <button className="tb-addbtn" type="submit" disabled={busy}>
-              Toevoegen
+              {t("common.add")}
             </button>
           </form>
         ) : null}
@@ -397,14 +416,14 @@ function DashboardInner() {
                     load();
                   }}
                 >
-                  Weg
+                  {t("common.remove")}
                 </button>
               ) : null}
             </li>
           ))}
         </ul>
         {!data?.goals.length ? (
-          <p className="pl-sub2">Nog geen checkpoints. Zet er één voor deze week.</p>
+          <p className="pl-sub2">{t("dashboard.noGoals")}</p>
         ) : null}
       </section>
     </div>

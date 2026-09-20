@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { ApiError } from "@/lib/api/errors";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminDb } from "@/lib/firebase/admin";
+import { tRequest } from "@/lib/i18n/server";
 import type {
   Course,
   CourseAsset,
@@ -30,7 +31,7 @@ function progressCol(uid: string) {
 function asCourse(id: string, data: Record<string, unknown>): Course {
   return {
     id,
-    title: String(data.title || "Cursus"),
+    title: String(data.title || "Course"),
     description: String(data.description || ""),
     order: Number(data.order || 0),
     published: Boolean(data.published),
@@ -49,7 +50,7 @@ export async function listCourses(opts: { publishedOnly?: boolean } = {}) {
   await meter({ reads: Math.max(1, snap.size) });
   const courses = snap.docs
     .map((d) => asCourse(d.id, d.data() as Record<string, unknown>))
-    .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, "nl"));
+    .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title, "en"));
   const visible = opts.publishedOnly
     ? courses.filter((c) => c.published)
     : courses;
@@ -82,7 +83,7 @@ export async function saveCourse(
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
-  if (!course.title) throw new ApiError("Titel is verplicht", 400);
+  if (!course.title) throw new ApiError(await tRequest("api.titleRequired"), 400);
   await coursesCol().doc(courseId).set(course);
   await meter({ writes: 1, reads: id ? 1 : 0 });
   return course;
@@ -97,7 +98,7 @@ function normalizeChapters(chapters: CourseChapter[]): CourseChapter[] {
   return chapters
     .map((ch, i) => ({
       id: ch.id || randomUUID(),
-      title: (ch.title || `Hoofdstuk ${i + 1}`).trim(),
+      title: (ch.title || `Chapter ${i + 1}`).trim(),
       order: ch.order ?? i,
       lessons: (ch.lessons || []).map((lesson, j) =>
         normalizeLesson(lesson, j),
@@ -114,7 +115,7 @@ function normalizeAsset(raw: unknown): CourseAsset | null {
   if (!path && !url) return null;
   return {
     path,
-    name: String(a.name || "bestand").trim() || "bestand",
+    name: String(a.name || "file").trim() || "file",
     contentType: String(a.contentType || "").trim(),
     url,
   };
@@ -123,7 +124,7 @@ function normalizeAsset(raw: unknown): CourseAsset | null {
 function normalizeLesson(lesson: CourseLesson, index: number): CourseLesson {
   return {
     id: lesson.id || randomUUID(),
-    title: (lesson.title || `Les ${index + 1}`).trim(),
+    title: (lesson.title || `Lesson ${index + 1}`).trim(),
     videoUrl: (lesson.videoUrl || "").trim(),
     videoFile: normalizeAsset(lesson.videoFile) || null,
     pdfs: (lesson.pdfs || [])
@@ -201,7 +202,7 @@ export function seedStarterCourse(): Course {
     id: "starter-smc",
     title: "SMC Foundations",
     description:
-      "Eerste module van de academy: structuur, liquiditeit en hoe je setups in de journal zet.",
+      "First academy module: structure, liquidity, and how to log setups in the journal.",
     order: 1,
     published: true,
     createdAt: now,
@@ -209,35 +210,35 @@ export function seedStarterCourse(): Course {
     chapters: [
       {
         id: "ch-1",
-        title: "Welkom",
+        title: "Welcome",
         order: 1,
         lessons: [
           {
             id: "les-1",
-            title: "Hoe het platform werkt",
+            title: "How the platform works",
             videoUrl: "",
-            body: "Koppel MT5 via Instellingen, log je setups in de journal, en review wekelijks met het P&L-dashboard. Community zit op Telegram.",
+            body: "Connect MT5 in Settings, log your setups in the journal, and review weekly with the P&L dashboard. Community lives on Telegram.",
             order: 1,
           },
           {
             id: "les-2",
-            title: "Journal-discipline",
+            title: "Journal discipline",
             videoUrl: "",
-            body: "Elke trade: richting, SL, tags (BOS / CHoCH / FVG / OB) en een screenshot van de setup. Zonder journal geen review.",
+            body: "Every trade: direction, SL, tags (BOS / CHoCH / FVG / OB) and a screenshot of the setup. No journal, no review.",
             order: 2,
           },
         ],
       },
       {
         id: "ch-2",
-        title: "Markets die we volgen",
+        title: "Markets we follow",
         order: 2,
         lessons: [
           {
             id: "les-3",
             title: "XAUUSD, WTI, US500, BTC",
             videoUrl: "",
-            body: "Issam’s kernmarkten staan onder Markets als TradingView-charts. Crypto-overzicht is informatief — de journal blijft MT5.",
+            body: "Issam’s core markets are under Markets as TradingView charts. The crypto desk is informational — the journal stays MT5.",
             order: 1,
           },
         ],

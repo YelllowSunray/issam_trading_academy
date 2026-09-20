@@ -10,6 +10,7 @@ import {
   setUserMembership,
   writeAuditLog,
 } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function PATCH(
   req: Request,
@@ -28,7 +29,7 @@ export async function PATCH(
 
     if (typeof body.disabled === "boolean") {
       if (uid === admin.uid && body.disabled) {
-        return jsonError("cannot disable yourself");
+        return jsonError(await tRequest("api.cannotDisableSelf"));
       }
       await setUserDisabled(uid, body.disabled);
       await adminAuth().updateUser(uid, { disabled: body.disabled });
@@ -42,7 +43,7 @@ export async function PATCH(
 
     if (body.membership) {
       if (!MEMBERSHIP_STATUSES.includes(body.membership)) {
-        return jsonError("ongeldige membership");
+        return jsonError(await tRequest("api.invalidMembership"));
       }
       const next = await setUserMembership(uid, body.membership, admin.uid);
       await writeAuditLog({
@@ -58,6 +59,6 @@ export async function PATCH(
       });
     }
 
-    return jsonError("disabled of membership verplicht");
+    return jsonError(await tRequest("api.disabledOrMembership"));
   });
 }

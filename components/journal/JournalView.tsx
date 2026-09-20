@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { TJ_INSTRUMENTS } from "@/lib/journal/constants";
 import { buildCurvePoints, buildCurveSVG } from "@/lib/journal/compute";
-import { fmtEur, tjFmtDateTime, tjFmtPrice } from "@/lib/journal/format";
+import { fmtEur, labelInstrument, tjFmtDateTime, tjFmtPrice } from "@/lib/journal/format";
 import type { UnifiedTrade } from "@/lib/journal/types";
 import { AiRichText } from "./AiRichText";
 import {
@@ -13,6 +14,8 @@ import {
   IconTrendDown,
   IconTrendUp,
 } from "./icons";
+
+const ALL = "all";
 
 export function JournalView({
   trades,
@@ -35,82 +38,83 @@ export function JournalView({
   debriefBusy?: string | null;
   readOnly?: boolean;
 }) {
-  const [filter, setFilter] = useState("Alle");
+  const t = useT();
+  const [filter, setFilter] = useState(ALL);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const counted = trades.filter((t) => t.r != null || t.eur != null);
-  const withR = trades.filter((t) => t.r != null);
-  const withEur = trades.filter((t) => t.eur != null);
-  const sign = (t: UnifiedTrade) => (t.r != null ? t.r : t.eur ?? 0);
-  const wins = counted.filter((t) => sign(t) > 0);
-  const losses = counted.filter((t) => sign(t) < 0);
-  const totalR = withR.reduce((s, t) => s + (t.r ?? 0), 0);
-  const totalEur = withEur.reduce((s, t) => s + (t.eur ?? 0), 0);
+  const counted = trades.filter((row) => row.r != null || row.eur != null);
+  const withR = trades.filter((row) => row.r != null);
+  const withEur = trades.filter((row) => row.eur != null);
+  const sign = (row: UnifiedTrade) => (row.r != null ? row.r : row.eur ?? 0);
+  const wins = counted.filter((row) => sign(row) > 0);
+  const losses = counted.filter((row) => sign(row) < 0);
+  const totalR = withR.reduce((s, row) => s + (row.r ?? 0), 0);
+  const totalEur = withEur.reduce((s, row) => s + (row.eur ?? 0), 0);
   const avgR = withR.length ? totalR / withR.length : 0;
   const avgEur = withEur.length ? totalEur / withEur.length : 0;
   const winRate = counted.length ? (wins.length / counted.length) * 100 : 0;
 
   const cards = [
-    { label: "Trades", value: String(counted.length) },
+    { label: t("journal.tradesLabel"), value: String(counted.length) },
     {
-      label: "Winrate",
+      label: t("journal.winrate"),
       value: counted.length ? `${winRate.toFixed(1)}%` : "—",
     },
     {
-      label: "Totaal R",
+      label: t("journal.totalR"),
       value: withR.length
         ? `${totalR >= 0 ? "+" : ""}${totalR.toFixed(2)}R`
         : "—",
       cls: totalR > 0 ? "pos" : totalR < 0 ? "neg" : "",
     },
     {
-      label: "Totaal €",
+      label: t("journal.totalEur"),
       value: withEur.length ? fmtEur(totalEur) : "—",
       cls: totalEur > 0 ? "pos" : totalEur < 0 ? "neg" : "",
     },
     {
-      label: "Gem. R",
+      label: t("journal.avgR"),
       value: withR.length ? `${avgR >= 0 ? "+" : ""}${avgR.toFixed(2)}R` : "—",
       cls: avgR > 0 ? "pos" : avgR < 0 ? "neg" : "",
     },
     {
-      label: "Gem. €",
+      label: t("journal.avgEur"),
       value: withEur.length ? fmtEur(avgEur) : "—",
       cls: avgEur > 0 ? "pos" : avgEur < 0 ? "neg" : "",
     },
-    { label: "Winst", value: String(wins.length) },
-    { label: "Verlies", value: String(losses.length) },
+    { label: t("journal.win"), value: String(wins.length) },
+    { label: t("journal.loss"), value: String(losses.length) },
   ];
 
   const filtered =
-    filter === "Alle"
+    filter === ALL
       ? trades
-      : trades.filter((t) => t.instrument === filter);
+      : trades.filter((row) => row.instrument === filter);
 
   const curveHtml = useMemo(() => {
     const points = buildCurvePoints(
-      trades.filter((t) => t.r != null).map((t) => t.r ?? 0),
+      trades.filter((row) => row.r != null).map((row) => row.r ?? 0),
     );
-    return buildCurveSVG(points, "var(--gold)");
-  }, [trades]);
+    return buildCurveSVG(points, "var(--gold)", t("journal.curveEmpty"));
+  }, [t, trades]);
 
   const byInstrument: Record<string, { r: number; n: number; wins: number }> =
     {};
-  withR.forEach((t) => {
-    byInstrument[t.instrument] = byInstrument[t.instrument] || {
+  withR.forEach((row) => {
+    byInstrument[row.instrument] = byInstrument[row.instrument] || {
       r: 0,
       n: 0,
       wins: 0,
     };
-    byInstrument[t.instrument].r += t.r ?? 0;
-    byInstrument[t.instrument].n += 1;
-    if ((t.r ?? 0) > 0) byInstrument[t.instrument].wins += 1;
+    byInstrument[row.instrument].r += row.r ?? 0;
+    byInstrument[row.instrument].n += 1;
+    if ((row.r ?? 0) > 0) byInstrument[row.instrument].wins += 1;
   });
 
   return (
     <div>
-      <div className="tj-eyebrow">TRADINGACADAMY</div>
-      <div className="tj-title">Trade Journal</div>
+      <div className="tj-eyebrow">{t("journal.eyebrow")}</div>
+      <div className="tj-title">{t("journal.title")}</div>
 
       <div className="tj-stats">
         {cards.map((c) => {
@@ -134,87 +138,87 @@ export function JournalView({
       <div className="tj-main">
         <div className="tj-panel">
           <div className="tj-panel-head">
-            <div className="ttl">LOG</div>
+            <div className="ttl">{t("journal.log")}</div>
             <select
               className="tj-filter"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             >
-              <option>Alle</option>
+              <option value={ALL}>{t("common.all")}</option>
               {TJ_INSTRUMENTS.map((i) => (
-                <option key={i}>{i}</option>
+                <option key={i} value={i}>
+                  {labelInstrument(i, t("journal.other"))}
+                </option>
               ))}
             </select>
           </div>
           <div className="tj-log scroll">
             {!filtered.length ? (
-              <div className="tj-empty">
-                Nog geen trades gelogd. Voeg je eerste trade toe.
-              </div>
+              <div className="tj-empty">{t("journal.emptyLog")}</div>
             ) : (
-              filtered.map((t) => {
+              filtered.map((row) => {
                 const icon =
-                  (t.r ?? 0) > 0 ? (
+                  (row.r ?? 0) > 0 ? (
                     <IconTrendUp />
-                  ) : (t.r ?? 0) < 0 ? (
+                  ) : (row.r ?? 0) < 0 ? (
                     <IconTrendDown />
                   ) : (
                     <IconMinus />
                   );
                 const rcls =
-                  (t.r ?? 0) > 0 ? "pos" : (t.r ?? 0) < 0 ? "neg" : "flat";
+                  (row.r ?? 0) > 0 ? "pos" : (row.r ?? 0) < 0 ? "neg" : "flat";
                 const rtxt =
-                  t.r != null
-                    ? `${t.r >= 0 ? "+" : ""}${t.r.toFixed(2)}R`
+                  row.r != null
+                    ? `${row.r >= 0 ? "+" : ""}${row.r.toFixed(2)}R`
                     : "—";
-                const etxt = t.eur != null ? fmtEur(t.eur) : "";
+                const etxt = row.eur != null ? fmtEur(row.eur) : "";
                 return (
-                  <div key={t.id}>
+                  <div key={row.id}>
                     <div
                       className="tj-row"
                       onClick={() => {
-                        const opening = !expanded[t.id];
+                        const opening = !expanded[row.id];
                         setExpanded((prev) => ({
                           ...prev,
-                          [t.id]: !prev[t.id],
+                          [row.id]: !prev[row.id],
                         }));
-                        if (opening) onOpenTrade?.(t.id);
+                        if (opening) onOpenTrade?.(row.id);
                       }}
                     >
                       <div className="icon">{icon}</div>
-                      <div className="dt">{t.date}</div>
+                      <div className="dt">{row.date}</div>
                       <div className="inst">
-                        {t.instrument}
-                        {t.source === "mt5" && (
+                        {labelInstrument(row.instrument, t("journal.other"))}
+                        {row.source === "mt5" && (
                           <span className="mt5badge">MT5</span>
                         )}
-                        {t.source === "mt5" && t.exit == null && !t.exitTime ? (
+                        {row.source === "mt5" && row.exit == null && !row.exitTime ? (
                           <span className="mt5badge open">OPEN</span>
                         ) : null}
                       </div>
                       <div
-                        className={`dir ${t.direction === "Long" ? "long" : "short"}`}
+                        className={`dir ${row.direction === "Long" ? "long" : "short"}`}
                       >
-                        {t.direction}
+                        {row.direction}
                       </div>
                       <div className="prices">
-                        {tjFmtPrice(t.entry)}{" "}
-                        <span className="arrow">→</span> {tjFmtPrice(t.exit)}
+                        {tjFmtPrice(row.entry)}{" "}
+                        <span className="arrow">→</span> {tjFmtPrice(row.exit)}
                       </div>
-                      {(t.imageUrls || []).length ? (
+                      {(row.imageUrls || []).length ? (
                         <button
                           type="button"
                           className="thumb-wrap"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onLightbox(t.imageUrls, 0);
+                            onLightbox(row.imageUrls, 0);
                           }}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img className="thumb" src={t.imageUrls[0]} alt="" />
-                          {t.imageUrls.length > 1 ? (
+                          <img className="thumb" src={row.imageUrls[0]} alt="" />
+                          {row.imageUrls.length > 1 ? (
                             <span className="thumb-count">
-                              +{t.imageUrls.length - 1}
+                              +{row.imageUrls.length - 1}
                             </span>
                           ) : null}
                         </button>
@@ -222,7 +226,7 @@ export function JournalView({
                         <div style={{ width: 34, flexShrink: 0 }} />
                       )}
                       <div className="tags">
-                        {(t.tags || []).map((tag) => (
+                        {(row.tags || []).map((tag) => (
                           <span className="tag" key={tag}>
                             {tag}
                           </span>
@@ -233,14 +237,14 @@ export function JournalView({
                         {etxt ? <div className="e">{etxt}</div> : null}
                       </div>
                       {!readOnly &&
-                        (t.source === "mt5" ? (
+                        (row.source === "mt5" ? (
                           <button
                             className="del"
                             type="button"
-                            title="Tags/notitie toevoegen"
+                            title={t("journal.addTags")}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onAnnotate(t.id);
+                              onAnnotate(row.id);
                             }}
                           >
                             <IconEdit />
@@ -249,22 +253,22 @@ export function JournalView({
                           <button
                             className="del"
                             type="button"
-                            title="Verwijderen"
+                            title={t("common.delete")}
                             onClick={(e) => {
                               e.stopPropagation();
-                              onDelete(t.id);
+                              onDelete(row.id);
                             }}
                           >
                             <IconTrash />
                           </button>
                         ))}
                     </div>
-                    {expanded[t.id] && (
+                    {expanded[row.id] && (
                       <TradeDetail
-                        trade={t}
-                        debrief={debriefs?.[t.id]}
-                        debriefBusy={debriefBusy === t.id}
-                        onDebrief={onDebrief ? () => onDebrief(t.id) : undefined}
+                        trade={row}
+                        debrief={debriefs?.[row.id]}
+                        debriefBusy={debriefBusy === row.id}
+                        onDebrief={onDebrief ? () => onDebrief(row.id) : undefined}
                         onLightbox={onLightbox}
                       />
                     )}
@@ -278,23 +282,23 @@ export function JournalView({
         <div>
           <div className="tj-panel tj-curvebox">
             <div className="ttl" style={{ marginBottom: 8 }}>
-              EQUITY CURVE (R)
+              {t("journal.equityCurveR")}
             </div>
             <div dangerouslySetInnerHTML={{ __html: curveHtml }} />
           </div>
           <div className="tj-panel">
             <div className="ttl" style={{ marginBottom: 10 }}>
-              PER INSTRUMENT (R)
+              {t("journal.perInstrumentR")}
             </div>
             {Object.keys(byInstrument).length ? (
               Object.entries(byInstrument).map(([name, d]) => (
                 <div className="tj-instrow" key={name}>
-                  <span>{name}</span>
+                  <span>{labelInstrument(name, t("journal.other"))}</span>
                   <span style={{ color: "var(--paper-dim)" }}>
-                    {d.n} trades
+                    {d.n} {t("common.trades")}
                   </span>
                   <span style={{ color: "var(--paper-dim)" }}>
-                    {((d.wins / d.n) * 100).toFixed(0)}% win
+                    {t("journal.winShort", { pct: ((d.wins / d.n) * 100).toFixed(0) })}
                   </span>
                   <span
                     style={{
@@ -318,7 +322,7 @@ export function JournalView({
 }
 
 function TradeDetail({
-  trade: t,
+  trade: row,
   debrief,
   debriefBusy,
   onDebrief,
@@ -330,19 +334,21 @@ function TradeDetail({
   onDebrief?: () => void;
   onLightbox: (urls: string[], index?: number) => void;
 }) {
+  const t = useT();
   const rows: [string, string | number][] = [
-    ["Entry", t.entry ?? "—"],
-    ["Stop loss", t.sl != null ? t.sl : "—"],
-    ["Exit", t.exit ?? "—"],
+    [t("journal.entry"), row.entry ?? "—"],
+    [t("journal.stopLoss"), row.sl != null ? row.sl : "—"],
+    [t("journal.exit"), row.exit ?? "—"],
   ];
-  if (t.volume != null) rows.push(["Volume", `${t.volume} lots`]);
-  if (t.entryTime) rows.push(["Open", tjFmtDateTime(t.entryTime)]);
-  if (t.exitTime) rows.push(["Close", tjFmtDateTime(t.exitTime)]);
-  if (t.commission != null) rows.push(["Commissie", fmtEur(t.commission)]);
-  if (t.swap != null) rows.push(["Swap", fmtEur(t.swap)]);
-  if (t.notes) rows.push(["Notitie", t.notes]);
+  if (row.volume != null)
+    rows.push([t("journal.volume"), t("journal.lots", { n: row.volume })]);
+  if (row.entryTime) rows.push([t("journal.open"), tjFmtDateTime(row.entryTime)]);
+  if (row.exitTime) rows.push([t("journal.close"), tjFmtDateTime(row.exitTime)]);
+  if (row.commission != null) rows.push([t("journal.commission"), fmtEur(row.commission)]);
+  if (row.swap != null) rows.push([t("journal.swap"), fmtEur(row.swap)]);
+  if (row.notes) rows.push([t("journal.note"), row.notes]);
 
-  const shots = t.imageUrls || [];
+  const shots = row.imageUrls || [];
 
   return (
     <div className="tj-detail">
@@ -365,7 +371,7 @@ function TradeDetail({
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt={`Screenshot ${i + 1}`} />
+              <img src={src} alt={t("journal.screenshotAlt", { n: i + 1 })} />
             </button>
           ))}
         </div>
@@ -382,17 +388,17 @@ function TradeDetail({
                 onDebrief();
               }}
             >
-              {debriefBusy ? "Debrief…" : "AI debrief"}
+              {debriefBusy ? t("journal.debriefBusy") : t("journal.debrief")}
             </button>
           ) : (
-            <div className="ai-kicker">AI debrief</div>
+            <div className="ai-kicker">{t("journal.debrief")}</div>
           )}
           {debriefBusy && !debrief ? (
-            <p className="ai-body dim">Debrief laden…</p>
+            <p className="ai-body dim">{t("journal.debriefLoading")}</p>
           ) : debrief ? (
             <AiRichText text={debrief} />
           ) : onDebrief ? null : (
-            <p className="ai-body dim">Nog geen debrief.</p>
+            <p className="ai-body dim">{t("journal.noDebrief")}</p>
           )}
         </div>
       )}

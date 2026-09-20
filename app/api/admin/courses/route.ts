@@ -7,6 +7,7 @@ import {
   seedStarterCourse,
 } from "@/lib/courses/store";
 import { writeAuditLog } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
     if (body.seed) {
       const existing = await listCourses();
       if (existing.some((c) => c.id === "starter-smc")) {
-        return jsonError("Voorbeeldcursus bestaat al");
+        return jsonError(await tRequest("api.exampleCourseExists"));
       }
       const course = await saveCourse(seedStarterCourse(), "starter-smc");
       await writeAuditLog({
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
       });
       return NextResponse.json(course);
     }
-    if (!body.title) return jsonError("Titel is verplicht");
+    if (!body.title) return jsonError(await tRequest("api.titleRequired"));
     const course = await saveCourse({
       title: body.title,
       description: body.description || "",

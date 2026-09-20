@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/LocaleProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { fetchMarketNews } from "@/lib/journal/api-client";
+import { dateLocale } from "@/lib/i18n";
 
-const FILTERS = ["Alles", "BTC", "ETH", "XAU", "OIL", "SPX", "MACRO"];
+const FILTERS = ["all", "BTC", "ETH", "XAU", "OIL", "SPX", "MACRO"] as const;
 
 function NewsInner() {
+  const { t, locale } = useI18n();
   const [items, setItems] = useState<
     Array<{
       id: string;
@@ -18,7 +21,7 @@ function NewsInner() {
     }>
   >([]);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState("Alles");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("all");
 
   useEffect(() => {
     fetchMarketNews()
@@ -26,11 +29,11 @@ function NewsInner() {
         setItems(r.items || []);
         if (r.error) setError(r.error);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, []);
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
+  }, [t]);
 
   const filtered = useMemo(() => {
-    if (filter === "Alles") return items;
+    if (filter === "all") return items;
     const key = filter.toLowerCase();
     return items.filter((item) =>
       `${item.title} ${item.categories}`.toLowerCase().includes(key),
@@ -39,12 +42,9 @@ function NewsInner() {
 
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">NIEUWS</p>
-      <h1 className="tj-title">Markt & crypto</h1>
-      <p className="pl-sub">
-        Feed gefilterd op instrumenten die de community volgt. Bron: CryptoPanic
-        of CryptoCompare.
-      </p>
+      <p className="tj-eyebrow">{t("news.eyebrow")}</p>
+      <h1 className="tj-title">{t("news.title")}</h1>
+      <p className="pl-sub">{t("news.lead")}</p>
       <div className="plat-chip-row">
         {FILTERS.map((f) => (
           <button
@@ -53,7 +53,7 @@ function NewsInner() {
             className={`plat-chip${filter === f ? " active" : ""}`}
             onClick={() => setFilter(f)}
           >
-            {f}
+            {f === "all" ? t("news.all") : f}
           </button>
         ))}
       </div>
@@ -64,7 +64,7 @@ function NewsInner() {
             <div className="pl-label">
               {item.source}
               {item.publishedAt
-                ? ` · ${new Date(item.publishedAt).toLocaleString("nl-NL")}`
+                ? ` · ${new Date(item.publishedAt).toLocaleString(dateLocale(locale))}`
                 : ""}
             </div>
             <div className="news-title">{item.title}</div>
@@ -74,9 +74,7 @@ function NewsInner() {
       </div>
       {!filtered.length && !error && (
         <div className="pl-empty">
-          {items.length
-            ? "Geen items voor deze filter."
-            : "Nieuws laden…"}
+          {items.length ? t("news.noneFilter") : t("news.loading")}
         </div>
       )}
     </div>

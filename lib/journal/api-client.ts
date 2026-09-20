@@ -1,3 +1,4 @@
+import { getClientLocale, translate } from "@/lib/i18n";
 import type { AuthUser, MembershipStatus, UserProfile } from "@/lib/auth/types";
 import type { BacktestEntry } from "@/lib/backtest/types";
 import type { GoalItem } from "@/lib/goals/types";
@@ -34,7 +35,9 @@ export function setAsUserOverride(uid: string | null) {
 
 async function authHeaders(json = false): Promise<HeadersInit> {
   const token = await tokenGetter();
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    "x-tradechain-locale": getClientLocale(),
+  };
   if (json) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
@@ -291,7 +294,7 @@ export async function uploadCourseAsset(
     }
     if (file.size > 20 * 1024 * 1024) {
       throw new Error(
-        "Directe upload geblokkeerd (storage CORS). Zet CORS op de Firebase-bucket of gebruik een kleiner bestand.",
+        translate(getClientLocale(), "api.corsBlocked"),
       );
     }
   }

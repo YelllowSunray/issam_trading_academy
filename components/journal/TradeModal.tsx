@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { TJ_INSTRUMENTS, TJ_SMC_TAGS } from "@/lib/journal/constants";
+import { labelInstrument } from "@/lib/journal/format";
 import type { TradeDirection } from "@/lib/journal/types";
 import { ImageField } from "./ImageField";
 import { IconX } from "./icons";
@@ -52,6 +54,7 @@ export function TradeModal({
     imageDataUrls: string[];
   }) => Promise<void>;
 }) {
+  const t = useT();
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
   const canSave = useMemo(
@@ -68,14 +71,14 @@ export function TradeModal({
     >
       <div className="tj-modal" onClick={(e) => e.stopPropagation()}>
         <div className="tj-modal-head">
-          <div>Nieuwe trade</div>
+          <div>{t("journal.newTrade")}</div>
           <button type="button" onClick={onClose}>
             <IconX />
           </button>
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Datum</div>
+          <div className="lbl">{t("journal.date")}</div>
           <input
             type="date"
             className="tj-input"
@@ -85,7 +88,7 @@ export function TradeModal({
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Instrument</div>
+          <div className="lbl">{t("journal.instrument")}</div>
           <select
             className="tj-input"
             value={form.instrument}
@@ -94,13 +97,15 @@ export function TradeModal({
             }
           >
             {TJ_INSTRUMENTS.map((i) => (
-              <option key={i}>{i}</option>
+              <option key={i} value={i}>
+                {labelInstrument(i, t("journal.other"))}
+              </option>
             ))}
           </select>
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Richting</div>
+          <div className="lbl">{t("journal.direction")}</div>
           <div className="tj-dirrow">
             {(["Long", "Short"] as TradeDirection[]).map((dir) => (
               <button
@@ -117,7 +122,7 @@ export function TradeModal({
 
         <div className="tj-grid3">
           <div className="tj-field">
-            <div className="lbl">Entry</div>
+            <div className="lbl">{t("journal.entry")}</div>
             <input
               type="number"
               step="any"
@@ -128,7 +133,7 @@ export function TradeModal({
             />
           </div>
           <div className="tj-field">
-            <div className="lbl">Stop loss</div>
+            <div className="lbl">{t("journal.stopLoss")}</div>
             <input
               type="number"
               step="any"
@@ -139,7 +144,7 @@ export function TradeModal({
             />
           </div>
           <div className="tj-field">
-            <div className="lbl">Exit</div>
+            <div className="lbl">{t("journal.exit")}</div>
             <input
               type="number"
               step="any"
@@ -152,23 +157,20 @@ export function TradeModal({
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Risico in € (optioneel)</div>
+          <div className="lbl">{t("journal.riskEur")}</div>
           <input
             type="number"
             step="any"
             className="tj-input"
-            placeholder="bv. 50"
+            placeholder={t("journal.riskPlaceholder")}
             value={form.riskEur}
             onChange={(e) => setForm((f) => ({ ...f, riskEur: e.target.value }))}
           />
-          <div className="hint">
-            Nodig om deze trade mee te tellen in het P&amp;L Dashboard (€ = R ×
-            risico).
-          </div>
+          <div className="hint">{t("journal.riskHint")}</div>
         </div>
 
         <div className="tj-field">
-          <div className="lbl">SMC setup</div>
+          <div className="lbl">{t("journal.smcSetup")}</div>
           <div className="tj-tagrow">
             {TJ_SMC_TAGS.map((tag) => {
               const active = form.tags.includes(tag);
@@ -181,7 +183,7 @@ export function TradeModal({
                     setForm((f) => ({
                       ...f,
                       tags: active
-                        ? f.tags.filter((t) => t !== tag)
+                        ? f.tags.filter((item) => item !== tag)
                         : [...f.tags, tag],
                     }))
                   }
@@ -194,18 +196,18 @@ export function TradeModal({
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Notities</div>
+          <div className="lbl">{t("journal.notes")}</div>
           <textarea
             className="tj-input"
             style={{ minHeight: 70, resize: "vertical" }}
-            placeholder="Bias, reden voor entry, emotie tijdens de trade..."
+            placeholder={t("journal.notesPlaceholder")}
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
           />
         </div>
 
         <div className="tj-field">
-          <div className="lbl">Setup screenshots</div>
+          <div className="lbl">{t("journal.screenshots")}</div>
           <ImageField
             images={form.images}
             onChange={(images) => setForm((f) => ({ ...f, images }))}
@@ -237,7 +239,7 @@ export function TradeModal({
             }
           }}
         >
-          {saving ? "Opslaan…" : "Trade opslaan"}
+          {saving ? t("common.saving") : t("journal.saveTrade")}
         </button>
       </div>
     </div>

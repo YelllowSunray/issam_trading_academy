@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 
 export function telegramBotToken() {
   return process.env.TELEGRAM_BOT_TOKEN?.trim() || "";
@@ -25,7 +26,7 @@ export type TelegramWidgetUser = {
 
 export function verifyTelegramLogin(data: TelegramWidgetUser) {
   const token = telegramBotToken();
-  if (!token) throw new ApiError("Telegram-bot is niet geconfigureerd", 503);
+  if (!token) throw new ApiError("Telegram bot is not configured", 503);
   const { hash, ...rest } = data;
   if (!hash) return false;
   const check = Object.entries(rest)
@@ -51,7 +52,7 @@ export async function createChatInviteLink(input: {
   expireUnix: number;
 }) {
   const token = telegramBotToken();
-  if (!token) throw new ApiError("Telegram-bot is niet geconfigureerd", 503);
+  if (!token) throw new ApiError(await tRequest("api.telegramNotConfigured"), 503);
   const res = await fetch(
     `https://api.telegram.org/bot${token}/createChatInviteLink`,
     {
@@ -71,7 +72,7 @@ export async function createChatInviteLink(input: {
     result?: { invite_link?: string };
   };
   if (!json.ok || !json.result?.invite_link) {
-    throw new ApiError(json.description || "Telegram invite mislukt", 502);
+    throw new ApiError(json.description || (await tRequest("api.telegramInviteFailed")), 502);
   }
   return json.result.invite_link;
 }

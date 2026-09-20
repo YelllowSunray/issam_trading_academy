@@ -94,7 +94,7 @@ async function dexJson<T>(path: string, revalidate: number): Promise<T | null> {
     next: { revalidate },
     headers: {
       Accept: "application/json",
-      "User-Agent": "TradingAcadamy/1.0",
+      "User-Agent": "Tradechain/1.0",
     },
   });
   if (!res.ok) return null;

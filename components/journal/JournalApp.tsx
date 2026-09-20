@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useT } from "@/components/i18n/LocaleProvider";
 import {
   createManualTrade,
   createTradeDebrief,
@@ -42,6 +43,7 @@ const MT5_STATUS_POLL_MS = 45_000;
 const MT5_ACCOUNTS_POLL_MS = 3 * 60_000;
 
 export function JournalApp() {
+  const t = useT();
   const { profile, asUser, coachTarget, setCoachTarget, loading: authLoading } =
     useAuth();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
@@ -206,11 +208,11 @@ export function JournalApp() {
           trade_count: 0,
           last_sync: null,
           last_heartbeat: null,
-          error: "niet bereikbaar",
+          error: t("journal.unreachable"),
         });
       }
     },
-    [],
+    [t],
   );
 
   useEffect(() => {
@@ -266,9 +268,7 @@ export function JournalApp() {
           setManualTrades([]);
           setMt5Trades([]);
           setBootError(
-            err instanceof Error
-              ? err.message
-              : "Kon journal data niet laden. Check Firebase Admin credentials.",
+            err instanceof Error ? err.message : t("journal.bootError"),
           );
         }
       } finally {
@@ -278,7 +278,7 @@ export function JournalApp() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, profile?.uid, asUser, readOnly]);
+  }, [authLoading, profile?.uid, asUser, readOnly, t]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -337,7 +337,7 @@ export function JournalApp() {
           </div>
         )}
         {booting && !bootError ? (
-          <div className="journal-loading">Journal laden…</div>
+          <div className="journal-loading">{t("journal.loading")}</div>
         ) : page === "backtest" ? (
           <BacktestPanel key={asUser || "self"} readOnly={readOnly} />
         ) : page === "journal" ? (
@@ -372,7 +372,9 @@ export function JournalApp() {
                         setDebriefs((prev) => ({ ...prev, [id]: rec.body }));
                       } catch (err) {
                         window.alert(
-                          err instanceof Error ? err.message : "Debrief mislukt",
+                          err instanceof Error
+                            ? err.message
+                            : t("journal.debriefFailed"),
                         );
                       } finally {
                         setDebriefBusy(null);

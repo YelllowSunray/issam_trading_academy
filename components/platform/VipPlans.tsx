@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { startCheckout } from "@/lib/journal/api-client";
 import { VIP_PERKS, type VipPlan, type VipPlanId } from "@/lib/platform/plans";
 
@@ -15,12 +16,23 @@ export function VipPlans({
   stripeReady: boolean;
   onError?: (msg: string) => void;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState<VipPlanId | null>(null);
+  const shownPerks = perks.length
+    ? perks
+    : [
+        t("vip.perkCalls"),
+        t("vip.perkAnalyses"),
+        t("vip.perkGroup"),
+        t("vip.perkTelegram"),
+        t("vip.perkAcademy"),
+        t("vip.perkJournal"),
+      ];
 
   return (
     <div>
       <ul className="vip-perks">
-        {perks.map((p) => (
+        {shownPerks.map((p) => (
           <li key={p}>{p}</li>
         ))}
       </ul>
@@ -30,11 +42,11 @@ export function VipPlans({
             key={plan.id}
             className={`vip-card${plan.highlight ? " featured" : ""}`}
           >
-            {plan.highlight ? <div className="vip-badge">Meest gekozen</div> : null}
-            <div className="vip-label">{plan.label}</div>
+            {plan.highlight ? <div className="vip-badge">{t("vip.mostChosen")}</div> : null}
+            <div className="vip-label">{t(`vip.${plan.id}Label`)}</div>
             <div className="vip-price">
               {plan.priceLabel}
-              <span>{plan.cadence}</span>
+              <span>{t(`vip.${plan.id}Cadence`)}</span>
             </div>
             <button
               type="button"
@@ -50,15 +62,15 @@ export function VipPlans({
                     stripeReady
                       ? e instanceof Error
                         ? e.message
-                        : "Checkout mislukt"
-                      : "Stripe is nog niet live. Vraag Issam om 1:1-toegang.",
+                        : t("vip.checkoutFailed")
+                      : t("vip.stripeNotLive"),
                   );
                 } finally {
                   setBusy(null);
                 }
               }}
             >
-              {busy === plan.id ? "Bezig…" : "Word VIP"}
+              {busy === plan.id ? t("common.busy") : t("vip.becomeVip")}
             </button>
           </article>
         ))}

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { hardReplace } from "@/lib/navigation";
 
-function mapAuthError(err: unknown): string {
+function mapAuthError(err: unknown, t: (key: string) => string): string {
   const raw =
     err && typeof err === "object" && "code" in err
       ? String((err as { code?: string }).code || "")
@@ -21,43 +23,44 @@ function mapAuthError(err: unknown): string {
     code.includes("auth/user-not-found") ||
     code.includes("auth/invalid-login-credentials")
   ) {
-    return "Verkeerd e-mailadres of wachtwoord.";
+    return t("login.wrongCredentials");
   }
   if (code.includes("auth/email-already-in-use")) {
-    return "Dit e-mailadres heeft al een account. Log in of reset je wachtwoord.";
+    return t("login.emailInUse");
   }
   if (code.includes("auth/weak-password")) {
-    return "Kies een sterker wachtwoord (minimaal 6 tekens).";
+    return t("login.weakPassword");
   }
   if (code.includes("auth/invalid-email")) {
-    return "Ongeldig e-mailadres.";
+    return t("login.invalidEmail");
   }
   if (code.includes("auth/too-many-requests")) {
-    return "Te veel pogingen. Probeer later opnieuw.";
+    return t("login.tooMany");
   }
   if (code.includes("auth/popup-closed-by-user")) {
-    return "Google-login geannuleerd.";
+    return t("login.googleCancelled");
   }
   if (code.includes("auth/unauthorized-domain")) {
-    return "Dit domein is niet toegestaan voor Google-login. Voeg tradechain.me toe onder Firebase → Authentication → Settings → Authorized domains.";
+    return t("login.unauthorizedDomain");
   }
   if (
     code.includes("auth/operation-not-allowed") ||
     code.includes("auth/admin-restricted-operation")
   ) {
-    return "Google-login is niet ingeschakeld in Firebase Authentication.";
+    return t("login.googleDisabled");
   }
   if (code.includes("auth/network-request-failed")) {
-    return "Geen verbinding. Controleer je internet.";
+    return t("login.network");
   }
   if (code.includes("auth/internal-error")) {
-    return "Firebase Auth-fout. Controleer of Google provider aan staat en of Vercel de NEXT_PUBLIC_FIREBASE_* env vars heeft.";
+    return t("login.firebaseInternal");
   }
   if (message && !message.startsWith("Firebase:")) return message;
-  return "Er ging iets mis. Probeer het opnieuw.";
+  return t("login.generic");
 }
 
 function LoginForm() {
+  const t = useT();
   const {
     loginEmail,
     registerEmail,
@@ -102,10 +105,10 @@ function LoginForm() {
         hardReplace(next);
       } else {
         await resetPassword(email);
-        setInfo("Check je e-mail voor een reset-link.");
+        setInfo(t("login.resetSent"));
       }
     } catch (err) {
-      setError(mapAuthError(err));
+      setError(mapAuthError(err, t));
     } finally {
       setBusy(false);
     }
@@ -113,21 +116,21 @@ function LoginForm() {
 
   const subtitle =
     mode === "login"
-      ? "Log in op het academy-platform"
+      ? t("login.subtitleLogin")
       : mode === "register"
-        ? "Account aanmaken — toegang volgt via coaching of Stripe"
-        : "Wachtwoord resetten";
+        ? t("login.subtitleRegister")
+        : t("login.subtitleReset");
 
   return (
     <div className="auth-card">
       <div className="tb-brand" style={{ marginBottom: 6 }}>
-        Trading<span>Acadamy</span>
+        Trade<span>chain</span>
       </div>
       <div className="pl-sub" style={{ marginBottom: 16 }}>
         {subtitle}
       </div>
 
-      <div className="auth-segments" role="tablist" aria-label="Auth modus">
+      <div className="auth-segments" role="tablist" aria-label={t("login.mode")}>
         <button
           type="button"
           role="tab"
@@ -139,7 +142,7 @@ function LoginForm() {
             setInfo(null);
           }}
         >
-          Inloggen
+          {t("login.signIn")}
         </button>
         <button
           type="button"
@@ -152,7 +155,7 @@ function LoginForm() {
             setInfo(null);
           }}
         >
-          Registreren
+          {t("login.register")}
         </button>
         <button
           type="button"
@@ -165,14 +168,14 @@ function LoginForm() {
             setInfo(null);
           }}
         >
-          Reset
+          {t("login.reset")}
         </button>
       </div>
 
       <form onSubmit={onSubmit}>
         {mode === "register" && (
           <div className="tj-field">
-            <div className="lbl">Naam</div>
+            <div className="lbl">{t("common.name")}</div>
             <input
               className="tj-input"
               value={displayName}
@@ -181,15 +184,15 @@ function LoginForm() {
               minLength={2}
               maxLength={80}
               autoComplete="name"
-              placeholder="Voor- en achternaam"
+              placeholder={t("login.namePlaceholder")}
             />
             <div className="hint" style={{ marginTop: 6 }}>
-              Verplicht bij e-mail registratie (Google vult dit automatisch).
+              {t("login.nameHint")}
             </div>
           </div>
         )}
         <div className="tj-field">
-          <div className="lbl">E-mail</div>
+          <div className="lbl">{t("common.email")}</div>
           <input
             type="email"
             className="tj-input"
@@ -201,7 +204,7 @@ function LoginForm() {
         </div>
         {mode !== "reset" && (
           <div className="tj-field">
-            <div className="lbl">Wachtwoord</div>
+            <div className="lbl">{t("common.password")}</div>
             <input
               type="password"
               className="tj-input"
@@ -227,12 +230,12 @@ function LoginForm() {
 
         <button className="tj-savebtn" type="submit" disabled={busy}>
           {busy
-            ? "Bezig…"
+            ? t("common.busy")
             : mode === "login"
-              ? "Inloggen"
+              ? t("login.submitLogin")
               : mode === "register"
-                ? "Account aanmaken"
-                : "Reset-link sturen"}
+                ? t("login.submitRegister")
+                : t("login.submitReset")}
         </button>
       </form>
 
@@ -249,13 +252,13 @@ function LoginForm() {
               await loginGoogle();
               hardReplace(next);
             } catch (err) {
-              setError(mapAuthError(err));
+              setError(mapAuthError(err, t));
             } finally {
               setBusy(false);
             }
           }}
         >
-          Doorgaan met Google
+          {t("login.google")}
         </button>
       )}
     </div>
@@ -263,20 +266,22 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const t = useT();
   return (
     <div className="auth-shell">
       <header className="auth-shell-nav">
         <Link href="/" className="home-nav-brand">
-          Trading<span>Acadamy</span>
+          Trade<span>chain</span>
         </Link>
+        <LanguageSwitcher />
         <Link href="/" className="home-nav-link">
-          ← Homepage
+          {t("login.backHome")}
         </Link>
       </header>
       <main className="auth-shell-main">
         <Suspense
           fallback={
-            <div className="text-[var(--paper-dim)] text-sm">Laden…</div>
+            <div className="text-[var(--paper-dim)] text-sm">{t("common.loading")}</div>
           }
         >
           <LoginForm />

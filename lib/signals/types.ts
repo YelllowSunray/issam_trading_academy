@@ -17,4 +17,4 @@ export type TradeSignal = {
 };
 
 export const SIGNAL_DISCLAIMER =
-  "Dit is geen beleggingsadvies en geen vermogensbeheer. Geen garantie. Je voert zelf handmatig uit. Verleden resultaten zeggen niets over de toekomst.";
+  "This is not investment advice and not asset management. No guarantee. You execute manually. Past results say nothing about the future.";

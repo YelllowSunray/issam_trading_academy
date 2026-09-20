@@ -34,5 +34,5 @@ export const MOBILE_DOCK: Array<{
   { href: "/signals", label: "Signals", icon: "signals" },
   { href: "/journal", label: "Journal", icon: "journal" },
   { href: "/learn", label: "Academy", icon: "academy" },
-  { href: "/settings", label: "Profiel", icon: "profile" },
+  { href: "/settings", label: "Profile", icon: "profile" },
 ];

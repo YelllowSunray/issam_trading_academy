@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 import {
   listOpenTrades,
   receiveHeartbeat,
@@ -50,11 +51,11 @@ export async function syncCloudAccount(
     const seed = await ensureSeedAccount();
     target = seed.accountId === accountId ? seed : null;
   }
-  if (!target) throw new ApiError("cloud-account niet gevonden", 404);
+  if (!target) throw new ApiError(await tRequest("api.cloudAccountNotFound"), 404);
 
   const uid = await resolveUid(target);
   if (!uid) {
-    const error = `${target.email} heeft nog geen login — kan niet syncen`;
+    const error = await tRequest("api.noLoginCannotSync", { email: target.email });
     await updateCloudAccount(target.accountId, { status: "error", lastError: error });
     return {
       accountId: target.accountId,
@@ -72,7 +73,7 @@ export async function syncCloudAccount(
     await checkConnect(target.accountId);
     const summary = await getAccountSummary(target.accountId);
     const login = summary.login || target.login;
-    if (!login) throw new ApiError("API2Trade gaf geen MT5-login terug", 502);
+    if (!login) throw new ApiError(await tRequest("api.noMt5Login"), 502);
 
     const from = new Date(
       target.lastSyncAt
@@ -158,7 +159,7 @@ export async function syncCloudAccount(
       error: null,
     };
   } catch (err) {
-    const error = err instanceof Error ? err.message : "sync mislukt";
+    const error = err instanceof Error ? err.message : await tRequest("api.syncFailed");
     await updateCloudAccount(target.accountId, {
       status: "error",
       lastError: error,
@@ -194,13 +195,13 @@ export async function mapExistingAccount(input: {
 }) {
   const profile = await resolveMember(input.email);
   const accountId = input.accountId.trim();
-  if (!accountId) throw new ApiError("UUID verplicht", 400);
+  if (!accountId) throw new ApiError(await tRequest("api.uuidRequired"), 400);
 
   const vendor = await getVendorAccounts();
   const match = vendor.find((v) => v.id === accountId);
   const login = (input.login || match?.accountNumber || "").trim();
   if (!login) {
-    throw new ApiError("MT5-login ontbreekt — vul het accountnummer in", 400);
+    throw new ApiError(await tRequest("api.mt5LoginMissing"), 400);
   }
 
   const now = new Date().toISOString();
@@ -238,7 +239,7 @@ export async function registerStudentAccount(input: {
   const server = input.server.trim();
   const password = input.password;
   if (!login || !server || !password) {
-    throw new ApiError("login, server en wachtwoord zijn verplicht", 400);
+    throw new ApiError(await tRequest("api.loginServerPasswordRequired"), 400);
   }
 
   const created = await registerAccount({
@@ -274,7 +275,7 @@ export async function unlinkCloudAccount(
   opts: { deleteVendor?: boolean } = {},
 ) {
   const rec = await getCloudAccount(accountId);
-  if (!rec) throw new ApiError("cloud-account niet gevonden", 404);
+  if (!rec) throw new ApiError(await tRequest("api.cloudAccountNotFound"), 404);
   if (opts.deleteVendor) {
     const { deleteVendorAccount } = await import("./client");
     await deleteVendorAccount(accountId);

@@ -13,7 +13,7 @@
 //|   Lokaal testen: TradeURL/HeartbeatURL naar                         |
 //|     http://127.0.0.1:3000/api/... en WebRequest voor die host.      |
 //+------------------------------------------------------------------+
-#property copyright "TradingAcadamy"
+#property copyright "Tradechain"
 #property strict
 
 input string TradeURL     = "https://tradechain.me/api/mt5-trade";

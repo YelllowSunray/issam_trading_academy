@@ -82,7 +82,7 @@ async function loadFeed(feed: (typeof FEEDS)[number]): Promise<NewsItem[]> {
     next: { revalidate: 180 },
     headers: {
       Accept: "application/rss+xml, application/xml, text/xml",
-      "User-Agent": "TradingAcadamy/1.0",
+      "User-Agent": "Tradechain/1.0",
     },
   });
   if (!res.ok) return [];

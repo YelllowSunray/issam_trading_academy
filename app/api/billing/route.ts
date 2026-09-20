@@ -9,6 +9,7 @@ import {
 } from "@/lib/billing/store";
 import { getUsageSnapshot } from "@/lib/billing/meter";
 import { writeAuditLog } from "@/lib/users/store";
+import { getRequestLocale } from "@/lib/i18n/server";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
@@ -17,11 +18,12 @@ export async function GET(req: Request) {
       allowWhenBillingExceeded: true,
       allowWithoutMembership: true,
     });
+    const locale = await getRequestLocale();
     const [state, usage] = await Promise.all([
       getBillingState(),
       getUsageSnapshot(),
     ]);
-    return NextResponse.json(billingPublicMessage(state, usage));
+    return NextResponse.json(billingPublicMessage(state, usage, locale));
   });
 }
 
@@ -33,7 +35,7 @@ export async function PATCH(req: Request) {
     });
     if (!isBillingOwner(user.email)) {
       throw new ApiError(
-        "Alleen Samir mag de app handmatig blokkeren of ontgrendelen.",
+        "Only Samir can lock or unlock the app manually.",
         403,
       );
     }
@@ -55,6 +57,6 @@ export async function PATCH(req: Request) {
       meta: { reason: state.reason },
     });
     const usage = await getUsageSnapshot();
-    return NextResponse.json(billingPublicMessage(state, usage));
+    return NextResponse.json(billingPublicMessage(state, usage, await getRequestLocale()));
   });
 }

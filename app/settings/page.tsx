@@ -3,10 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useI18n } from "@/components/i18n/LocaleProvider";
 import { PlatformShell } from "@/components/platform/PlatformShell";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { isActiveMembership, MEMBERSHIP_LABELS } from "@/lib/auth/membership";
+import { isActiveMembership } from "@/lib/auth/membership";
+import { dateLocale } from "@/lib/i18n";
 import {
   confirmCheckout,
   fetchMt5SecretMeta,
@@ -20,6 +23,7 @@ import { VIP_PLANS, type VipPlan } from "@/lib/platform/plans";
 
 function SettingsInner() {
   const { profile, logout, updateDisplayName, refreshProfile } = useAuth();
+  const { t, locale } = useI18n();
   const [meta, setMeta] = useState<{
     configured: boolean;
     createdAt: string | null;
@@ -61,40 +65,40 @@ function SettingsInner() {
     if (!member) return;
     fetchMt5SecretMeta()
       .then(setMeta)
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
     fetchMyCloudSync()
       .then((d) => setCloudAccounts(d.accounts))
       .catch(() => setCloudAccounts([]));
-  }, [member]);
+  }, [member, t]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") === "cancel") {
-      setError("Checkout geannuleerd.");
+      setError(t("settings.checkoutCancel"));
       return;
     }
     if (params.get("checkout") !== "success") return;
     const sessionId = params.get("session_id");
     if (!sessionId) {
-      setProfileInfo("Betaling ontvangen. Vernieuw de pagina als toegang nog niet actief is.");
+      setProfileInfo(t("settings.paymentReceived"));
       return;
     }
     confirmCheckout(sessionId)
       .then(async () => {
         await refreshProfile();
-        setProfileInfo("Abonnement actief. Je hebt nu het volledige platform.");
+        setProfileInfo(t("settings.subscriptionActive"));
         window.history.replaceState({}, "", "/settings");
       })
       .catch((e) =>
-        setError(e instanceof Error ? e.message : "Bevestigen van betaling mislukt"),
+        setError(e instanceof Error ? e.message : t("settings.confirmFailed")),
       );
+    // t is read for checkout query params on mount; avoid re-confirming on locale change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProfile]);
 
   async function handleRotate() {
     if (meta?.configured) {
-      const ok = window.confirm(
-        "Weet je zeker dat je het MT5-secret wilt roteren? De oude secret werkt daarna niet meer — update de EA.",
-      );
+      const ok = window.confirm(t("settings.rotateConfirm"));
       if (!ok) return;
     }
     setBusy(true);
@@ -104,7 +108,7 @@ function SettingsInner() {
       setPlainSecret(res.secret);
       setMeta({ configured: true, createdAt: res.createdAt });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Mislukt");
+      setError(e instanceof Error ? e.message : t("common.failed"));
     } finally {
       setBusy(false);
     }
@@ -117,9 +121,9 @@ function SettingsInner() {
     setProfileInfo(null);
     try {
       await updateDisplayName(displayName);
-      setProfileInfo("Profiel opgeslagen.");
+      setProfileInfo(t("settings.saved"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Opslaan mislukt");
+      setError(err instanceof Error ? err.message : t("settings.saveFailed"));
     } finally {
       setProfileBusy(false);
     }
@@ -128,21 +132,21 @@ function SettingsInner() {
   return (
     <div className="journal-main">
       <PageHeader
-        title="Profiel & instellingen"
-        subtitle="Pas je naam aan, beheer lidmaatschap en MT5-koppeling."
+        title={t("settings.title")}
+        subtitle={t("settings.subtitle")}
         backHref="/dashboard"
-        backLabel="← Dashboard"
+        backLabel={t("settings.back")}
       />
 
       <div className="tj-panel">
         <div className="ttl" style={{ marginBottom: 10 }}>
-          LIDMAATSCHAP
+          {t("settings.membership")}
         </div>
         <div className="status-chip" style={{ marginBottom: 12 }}>
-          {profile ? MEMBERSHIP_LABELS[profile.membership] : "—"}
+          {profile ? t(`membership.${profile.membership}`) : "—"}
         </div>
         <p className="pl-sub2" style={{ marginBottom: 12 }}>
-          1:1-klanten zet Issam op coaching. VIP kiest hier een pakket.
+          {t("settings.membershipLead")}
         </p>
         <VipPlans
           plans={plans}
@@ -158,22 +162,22 @@ function SettingsInner() {
                 const { url } = await openBillingPortal();
                 window.location.href = url;
               } catch (e) {
-                setError(e instanceof Error ? e.message : "Portal mislukt");
+                setError(e instanceof Error ? e.message : t("settings.portalFailed"));
               }
             }}
           >
-            Stripe-portaal
+            {t("settings.stripePortal")}
           </button>
         </div>
       </div>
 
       <div className="tj-panel">
         <div className="ttl" style={{ marginBottom: 10 }}>
-          PROFIEL
+          {t("settings.profile")}
         </div>
         <form onSubmit={onSaveProfile}>
           <div className="tj-field">
-            <div className="lbl">Naam</div>
+            <div className="lbl">{t("common.name")}</div>
             <input
               className="tj-input"
               value={displayName}
@@ -182,14 +186,14 @@ function SettingsInner() {
               minLength={2}
               maxLength={80}
               autoComplete="name"
-              placeholder="Jouw naam"
+              placeholder={t("settings.namePlaceholder")}
             />
             <div className="hint" style={{ marginTop: 6 }}>
-              Dit is de naam die coaches en jijzelf in de app zien.
+              {t("settings.nameHint")}
             </div>
           </div>
           <div className="tj-field">
-            <div className="lbl">E-mail</div>
+            <div className="lbl">{t("common.email")}</div>
             <input
               className="tj-input"
               value={profile?.email || ""}
@@ -198,11 +202,11 @@ function SettingsInner() {
             />
           </div>
           <div className="tj-field">
-            <div className="lbl">Rol</div>
+            <div className="lbl">{t("common.role")}</div>
             <input
               className="tj-input"
               value={
-                profile?.role === "admin" ? "Coach / admin" : "Student"
+                profile?.role === "admin" ? t("common.coachAdmin") : t("common.student")
               }
               disabled
               readOnly
@@ -214,7 +218,7 @@ function SettingsInner() {
             </div>
           )}
           <button className="tj-savebtn" type="submit" disabled={profileBusy}>
-            {profileBusy ? "Opslaan…" : "Profiel opslaan"}
+            {profileBusy ? t("common.saving") : t("settings.saveProfile")}
           </button>
         </form>
         <button
@@ -223,8 +227,18 @@ function SettingsInner() {
           style={{ marginTop: 12, width: "100%" }}
           onClick={() => logout()}
         >
-          Uitloggen
+          {t("common.logout")}
         </button>
+      </div>
+
+      <div className="tj-panel">
+        <div className="ttl" style={{ marginBottom: 10 }}>
+          {t("settings.language")}
+        </div>
+        <p className="pl-sub2" style={{ marginBottom: 12 }}>
+          {t("settings.languageLead")}
+        </p>
+        <LanguageSwitcher />
       </div>
 
       {member && (
@@ -232,11 +246,10 @@ function SettingsInner() {
       {cloudAccounts.length > 0 && (
         <div className="tj-panel">
           <div className="ttl" style={{ marginBottom: 10 }}>
-            CLOUD MT5
+            {t("settings.cloudMt5")}
           </div>
           <p className="pl-sub2" style={{ marginBottom: 12 }}>
-            Dit account synct via de academy-cloud. De EA is dan niet nodig
-            op je telefoon.
+            {t("settings.cloudLead")}
           </p>
           {cloudAccounts.map((a) => (
             <div key={a.accountId} style={{ marginBottom: 10 }}>
@@ -247,8 +260,10 @@ function SettingsInner() {
               <div className="pl-sub2">
                 {a.status}
                 {a.lastSyncAt
-                  ? ` · laatste sync ${new Date(a.lastSyncAt).toLocaleString("nl-NL")}`
-                  : " · nog geen sync"}
+                  ? t("settings.lastSync", {
+                      when: new Date(a.lastSyncAt).toLocaleString(dateLocale(locale)),
+                    })
+                  : t("settings.noSync")}
               </div>
               {a.lastError ? (
                 <div className="pl-sub2">{a.lastError}</div>
@@ -271,22 +286,23 @@ function SettingsInner() {
           MT5 INGEST SECRET
           {meta && (
             <span className={`status-chip ${meta.configured ? "on" : "off"}`}>
-              {meta.configured ? "Secret geconfigureerd" : "Nog niet geconfigureerd"}
+              {meta.configured ? t("settings.secretConfigured") : t("settings.secretMissing")}
             </span>
           )}
         </div>
         <p className="pl-sub2" style={{ marginBottom: 12 }}>
-          Genereer een secret en plak die in de EA-input <code>IngestSecret</code>.
-          Zonder secret worden trades niet geaccepteerd.
+          {t("settings.secretLead")}
         </p>
         {meta?.configured && meta.createdAt && (
           <div className="pl-sub2" style={{ marginBottom: 12 }}>
-            Laatst gegenereerd: {new Date(meta.createdAt).toLocaleString("nl-NL")}
+            {t("settings.lastGenerated", {
+              when: new Date(meta.createdAt).toLocaleString(dateLocale(locale)),
+            })}
           </div>
         )}
         {plainSecret && (
           <div className="pl-empty" style={{ marginBottom: 12 }}>
-            Nieuw secret (één keer zichtbaar — kopieer nu):
+            {t("settings.newSecret")}
             <div className="code-row">
               <code>{plainSecret}</code>
               <CopyButton value={plainSecret} />
@@ -304,7 +320,11 @@ function SettingsInner() {
           disabled={busy}
           onClick={() => void handleRotate()}
         >
-          {busy ? "Genereren…" : meta?.configured ? "Secret roteren" : "Secret genereren"}
+          {busy
+            ? t("settings.generating")
+            : meta?.configured
+              ? t("settings.rotate")
+              : t("settings.generate")}
         </button>
       </div>
 

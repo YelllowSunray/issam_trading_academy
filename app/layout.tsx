@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import { IBM_Plex_Mono, Outfit } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
-import { SITE_URL } from "@/lib/platform/site";
+import { LocaleProvider } from "@/components/i18n/LocaleProvider";
+import { LOCALE_COOKIE, parseLocale } from "@/lib/i18n";
+import { SITE_NAME, SITE_URL } from "@/lib/platform/site";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -19,9 +22,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "TradingAcadamy — Home, markets & crypto",
+  title: `${SITE_NAME} — Home, markets & crypto`,
   description:
-    "Issam's trading academy: journal, MT5-sync, markets, DexScreener crypto en tools.",
+    "Tradechain: journal, MT5 sync, markets, DexScreener crypto and tools.",
   alternates: { canonical: "/" },
   icons: {
     icon: [
@@ -39,14 +42,19 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const jar = await cookies();
+  const locale = parseLocale(jar.get(LOCALE_COOKIE)?.value);
+
   return (
     <html
-      lang="nl"
+      lang={locale}
       className={`${outfit.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+        <LocaleProvider initialLocale={locale}>
+          <AuthProvider>{children}</AuthProvider>
+        </LocaleProvider>
         <Analytics />
       </body>
     </html>

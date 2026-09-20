@@ -3,32 +3,30 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { VIP_PERKS, VIP_PLANS } from "@/lib/platform/plans";
-
-const FEATURES = [
-  {
-    title: "Trade Journal + MT5",
-    body: "Per-lid journal, P&L en Expert Advisor-sync. Geen Python-bridge — trades gaan rechtstreeks naar je account.",
-  },
-  {
-    title: "Cursus & community",
-    body: "Modules met video + voortgang, plus een Telegram-invite die alleen leden zien.",
-  },
-  {
-    title: "Markets, nieuws & tools",
-    body: "TradingView-charts voor XAUUSD, WTI, US500 en BTC, calculators, kalender en een crypto-overzicht.",
-  },
-  {
-    title: "VIP-abonnement",
-    body: "Calls, analyses, group calls en VIP-Telegram. €100 / maand tot €1000 / jaar — of 1:1 via Issam.",
-  },
-];
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { useT } from "@/components/i18n/LocaleProvider";
+import { VIP_PLANS } from "@/lib/platform/plans";
 
 export function HomePage() {
   const { firebaseUser, loading } = useAuth();
+  const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const primaryHref = firebaseUser ? "/dashboard" : "/login?next=/dashboard";
-  const primaryLabel = firebaseUser ? "Open platform" : "Word lid";
+  const primaryLabel = firebaseUser ? t("home.openPlatform") : t("home.join");
+  const features = [
+    { title: t("home.f1Title"), body: t("home.f1Body") },
+    { title: t("home.f2Title"), body: t("home.f2Body") },
+    { title: t("home.f3Title"), body: t("home.f3Body") },
+    { title: t("home.f4Title"), body: t("home.f4Body") },
+  ];
+  const perks = [
+    t("vip.perkCalls"),
+    t("vip.perkAnalyses"),
+    t("vip.perkGroup"),
+    t("vip.perkTelegram"),
+    t("vip.perkAcademy"),
+    t("vip.perkJournal"),
+  ];
 
   useEffect(() => {
     document.documentElement.style.scrollBehavior = "smooth";
@@ -41,13 +39,13 @@ export function HomePage() {
     <div className="home">
       <header className="home-nav">
         <Link href="/" className="home-nav-brand">
-          Trading<span>Acadamy</span>
+          Trade<span>chain</span>
         </Link>
 
         <button
           type="button"
           className="home-nav-burger"
-          aria-label="Menu"
+          aria-label={t("common.menu")}
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}
         >
@@ -58,14 +56,15 @@ export function HomePage() {
 
         <nav className={`home-nav-links${menuOpen ? " open" : ""}`}>
           <a href="#features" onClick={() => setMenuOpen(false)}>
-            Features
+            {t("home.features")}
           </a>
           <a href="#vip" onClick={() => setMenuOpen(false)}>
             VIP
           </a>
           <a href="#how" onClick={() => setMenuOpen(false)}>
-            Hoe het werkt
+            {t("home.how")}
           </a>
+          <LanguageSwitcher />
           {!loading && (
             <>
               {firebaseUser ? (
@@ -74,7 +73,7 @@ export function HomePage() {
                   className="home-nav-cta"
                   onClick={() => setMenuOpen(false)}
                 >
-                  Platform
+                  {t("common.platform")}
                 </Link>
               ) : (
                 <>
@@ -83,14 +82,14 @@ export function HomePage() {
                     className="home-nav-link"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Inloggen
+                    {t("home.login")}
                   </Link>
                   <Link
                     href="/login?next=/dashboard"
                     className="home-nav-cta"
                     onClick={() => setMenuOpen(false)}
                   >
-                    Account maken
+                    {t("home.createAccount")}
                   </Link>
                 </>
               )}
@@ -130,37 +129,31 @@ export function HomePage() {
 
         <div className="home-hero-copy">
           <p className="home-hero-brand">
-            Trading<span>Acadamy</span>
+            Trade<span>chain</span>
           </p>
           <h1 className="home-hero-title">
-            Discipline in je trades.
+            {t("home.heroTitle1")}
             <br />
-            Duidelijkheid in je cijfers.
+            {t("home.heroTitle2")}
           </h1>
-          <p className="home-hero-lead">
-            Educatie, Telegram-community, journal en markets — één account voor
-            Issam&apos;s TradingAcadamy.
-          </p>
+          <p className="home-hero-lead">{t("home.heroLead")}</p>
           <div className="home-hero-actions">
             <Link href={primaryHref} className="home-btn home-btn-primary">
               {primaryLabel}
             </Link>
             <a href="#features" className="home-btn home-btn-ghost">
-              Bekijk features
+              {t("home.viewFeatures")}
             </a>
           </div>
         </div>
       </section>
 
       <section id="features" className="home-section">
-        <p className="home-eyebrow">Features</p>
-        <h2 className="home-section-title">Alles wat je nodig hebt om beter te traden</h2>
-        <p className="home-section-lead">
-          Eén plek voor logging, statistieken en academy-begeleiding — geen
-          spreadsheets die uit elkaar lopen.
-        </p>
+        <p className="home-eyebrow">{t("home.features")}</p>
+        <h2 className="home-section-title">{t("home.featuresTitle")}</h2>
+        <p className="home-section-lead">{t("home.featuresLead")}</p>
         <div className="home-feature-list">
-          {FEATURES.map((f, i) => (
+          {features.map((f, i) => (
             <article
               key={f.title}
               className="home-feature"
@@ -175,14 +168,10 @@ export function HomePage() {
 
       <section id="vip" className="home-section home-section-alt">
         <p className="home-eyebrow">VIP</p>
-        <h2 className="home-section-title">Kies je pakket</h2>
-        <p className="home-section-lead">
-          Geen vage “lidmaatschap”-tekst. Dit krijg je: calls, uitgebreide
-          analyses, group calls, VIP-Telegram, academy en journal. Geen
-          automatische copy-trading.
-        </p>
+        <h2 className="home-section-title">{t("home.vipTitle")}</h2>
+        <p className="home-section-lead">{t("home.vipLead")}</p>
         <ul className="vip-perks home-vip-perks">
-          {VIP_PERKS.map((p) => (
+          {perks.map((p) => (
             <li key={p}>{p}</li>
           ))}
         </ul>
@@ -193,12 +182,12 @@ export function HomePage() {
               className={`vip-card${plan.highlight ? " featured" : ""}`}
             >
               {plan.highlight ? (
-                <div className="vip-badge">Meest gekozen</div>
+                <div className="vip-badge">{t("vip.mostChosen")}</div>
               ) : null}
-              <div className="vip-label">{plan.label}</div>
+              <div className="vip-label">{t(`vip.${plan.id}Label`)}</div>
               <div className="vip-price">
                 {plan.priceLabel}
-                <span>{plan.cadence}</span>
+                <span>{t(`vip.${plan.id}Cadence`)}</span>
               </div>
               <Link
                 href={
@@ -209,7 +198,7 @@ export function HomePage() {
                 className="tb-addbtn"
                 style={{ textDecoration: "none", textAlign: "center" }}
               >
-                Word VIP
+                {t("vip.becomeVip")}
               </Link>
             </article>
           ))}
@@ -217,41 +206,37 @@ export function HomePage() {
       </section>
 
       <section id="how" className="home-section">
-        <p className="home-eyebrow">Workflow</p>
-        <h2 className="home-section-title">Van chart naar inzicht</h2>
-        <p className="home-section-lead">
-          Koppel MetaTrader, laat trades binnenkomen, en review wat echt werkt.
-        </p>
+        <p className="home-eyebrow">{t("home.workflow")}</p>
+        <h2 className="home-section-title">{t("home.howTitle")}</h2>
+        <p className="home-section-lead">{t("home.howLead")}</p>
         <ol className="home-steps">
           <li>
             <span>01</span>
             <div>
-              <h3>Account &amp; EA</h3>
-              <p>Log in, genereer je MT5-secret en hang JournalSyncEA aan je chart.</p>
+              <h3>{t("home.step1Title")}</h3>
+              <p>{t("home.step1Body")}</p>
             </div>
           </li>
           <li>
             <span>02</span>
             <div>
-              <h3>Sync &amp; journal</h3>
-              <p>Gesloten trades verschijnen live; vul tags, notities en screenshots aan.</p>
+              <h3>{t("home.step2Title")}</h3>
+              <p>{t("home.step2Body")}</p>
             </div>
           </li>
           <li>
             <span>03</span>
             <div>
-              <h3>Meet &amp; verbeter</h3>
-              <p>Gebruik het P&amp;L dashboard en CSV-export voor reviews met je coach.</p>
+              <h3>{t("home.step3Title")}</h3>
+              <p>{t("home.step3Body")}</p>
             </div>
           </li>
         </ol>
       </section>
 
       <section className="home-cta">
-        <h2 className="home-section-title">Klaar om je edge vast te leggen?</h2>
-        <p className="home-section-lead">
-          Open je journal, koppel MT5, en bouw een meetbaar tradingproces.
-        </p>
+        <h2 className="home-section-title">{t("home.ctaTitle")}</h2>
+        <p className="home-section-lead">{t("home.ctaLead")}</p>
         <Link href={primaryHref} className="home-btn home-btn-primary">
           {primaryLabel}
         </Link>
@@ -259,9 +244,9 @@ export function HomePage() {
 
       <footer className="home-footer">
         <span className="home-nav-brand">
-          Trading<span>Acadamy</span>
+          Trade<span>chain</span>
         </span>
-        <span>Journal &amp; P&amp;L voor serieuze traders</span>
+        <span>{t("home.footer")}</span>
       </footer>
     </div>
   );

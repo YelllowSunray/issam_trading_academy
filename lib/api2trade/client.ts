@@ -14,7 +14,7 @@ function baseUrl() {
 function apiKey() {
   const key = process.env.API2TRADE_API_KEY?.trim();
   if (!key) {
-    throw new ApiError("API2Trade is niet geconfigureerd (API2TRADE_API_KEY)", 500);
+    throw new ApiError("API2Trade is not configured (API2TRADE_API_KEY)", 500);
   }
   return key;
 }
@@ -303,7 +303,7 @@ export async function registerAccount(input: {
     }),
   });
   const id = str(asRecord(viaPost)?.id);
-  if (!id) throw new ApiError("API2Trade gaf geen account-UUID terug", 502);
+  if (!id) throw new ApiError("API2Trade did not return an account UUID", 502);
   return { id };
 }
 

@@ -9,6 +9,7 @@ import {
 } from "@/lib/signals/store";
 import type { SignalStatus } from "@/lib/signals/types";
 import { writeAuditLog } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
       status?: SignalStatus;
     };
     if (!body.instrument || !body.direction || !body.entry || !body.sl) {
-      return jsonError("instrument, richting, entry en SL zijn verplicht");
+      return jsonError(await tRequest("api.instrumentDirectionEntrySlRequired"));
     }
     const signal = await upsertSignal(
       {
@@ -59,7 +60,7 @@ export async function DELETE(req: Request) {
   return withApiError(async () => {
     const admin = await requireAdmin(req);
     const body = (await req.json().catch(() => ({}))) as { id?: string };
-    if (!body.id) return jsonError("id ontbreekt");
+    if (!body.id) return jsonError(await tRequest("api.idRequired"));
     await deleteSignal(body.id);
     await writeAuditLog({
       actorUid: admin.uid,

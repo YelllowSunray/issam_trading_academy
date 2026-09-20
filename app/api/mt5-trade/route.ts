@@ -5,6 +5,7 @@ import { assertBillingActive } from "@/lib/billing/store";
 import { receiveTrade } from "@/lib/mt5/store";
 import type { Mt5Trade } from "@/lib/journal/types";
 import { resolveUidFromIngestSecret } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function POST(req: Request) {
   return withApiError(async () => {
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
     const uid = await resolveUidFromIngestSecret(secret);
     if (!uid) return jsonError("unauthorized", 401);
     const data = (await req.json()) as Mt5Trade;
-    if (!data?.id) return jsonError("ongeldige payload", 400);
+    if (!data?.id) return jsonError(await tRequest("api.invalidPayload"), 400);
     await receiveTrade(uid, data);
     return NextResponse.json({ ok: true });
   });

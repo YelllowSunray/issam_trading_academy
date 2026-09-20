@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     const uid = await resolveTargetUid(req, user);
     const cached = await getDailyBrief(uid, todayAmsterdam());
     if (cached) return NextResponse.json(cached);
-    if (!groqConfigured()) return jsonError("Groq is niet geconfigureerd", 500);
+    if (!groqConfigured()) return jsonError("Groq is not configured", 500);
     const brief = await ensureDailyBrief(uid, false);
     return NextResponse.json(brief);
   });
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   return withApiError(async () => {
     const user = await requireAuthUser(req);
-    if (!groqConfigured()) return jsonError("Groq is niet geconfigureerd", 500);
+    if (!groqConfigured()) return jsonError("Groq is not configured", 500);
     const uid = await resolveTargetUid(req, user);
     if (uid !== user.uid) return jsonError("forbidden", 403);
     const brief = await ensureDailyBrief(uid, true);

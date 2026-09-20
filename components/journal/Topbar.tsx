@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/LocaleProvider";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { UserMenu } from "@/components/ui/UserMenu";
+import { dateLocale } from "@/lib/i18n";
 import { TJ_SESSIONS } from "@/lib/journal/constants";
 import { tjIsSessionActive } from "@/lib/journal/compute";
 import { fmtEurAbs } from "@/lib/journal/format";
@@ -36,6 +39,7 @@ export function Topbar({
   readOnly?: boolean;
   embedded?: boolean;
 }) {
+  const { t, locale } = useI18n();
   const [clock, setClock] = useState("--:--:--");
   const [utcHour, setUtcHour] = useState(0);
 
@@ -44,7 +48,7 @@ export function Topbar({
       const now = new Date();
       setUtcHour(now.getUTCHours());
       setClock(
-        new Intl.DateTimeFormat("nl-NL", {
+        new Intl.DateTimeFormat(dateLocale(locale), {
           timeZone: "Europe/Amsterdam",
           hour: "2-digit",
           minute: "2-digit",
@@ -55,16 +59,19 @@ export function Topbar({
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [locale]);
 
   const activeSessions = TJ_SESSIONS.filter((s) => tjIsSessionActive(s, utcHour));
+  const totalTrades = accounts.reduce((n, a) => n + (a.trade_count || 0), 0);
+  const mt5Login =
+    status.account?.login != null ? ` · #${status.account.login}` : "";
 
   return (
     <header className="topbar">
       <div className="tb-left">
         {!embedded && (
           <Link href="/" className="tb-brand" style={{ textDecoration: "none", color: "inherit" }}>
-            Trading<span>Acadamy</span>
+            Trade<span>chain</span>
           </Link>
         )}
         <div className="tb-tabs">
@@ -73,29 +80,29 @@ export function Topbar({
             className={`tb-tab${page === "journal" ? " active" : ""}`}
             onClick={() => onPageChange("journal")}
           >
-            Journal
+            {t("nav.journal")}
           </button>
           <button
             type="button"
             className={`tb-tab${page === "dashboard" ? " active" : ""}`}
             onClick={() => onPageChange("dashboard")}
           >
-            <span className="tb-label-full">P&amp;L Dashboard</span>
-            <span className="tb-label-short">P&amp;L</span>
+            <span className="tb-label-full">{t("journal.pnlTitle")}</span>
+            <span className="tb-label-short">{t("journal.pnlShort")}</span>
           </button>
           <button
             type="button"
             className={`tb-tab${page === "backtest" ? " active" : ""}`}
             onClick={() => onPageChange("backtest")}
           >
-            Backtest
+            {t("coach.backtest")}
           </button>
           <Link href="/tools" className="tb-tab">
-            Tools
+            {t("nav.tools")}
           </Link>
           {!embedded && isAdmin && (
             <Link href="/admin" className="tb-tab">
-              Coaching
+              {t("journal.coaching")}
             </Link>
           )}
         </div>
@@ -103,10 +110,10 @@ export function Topbar({
       <div className="tb-right">
         {readOnly && coachName && (
           <div className="tb-coach-chip">
-            <span className="tb-coach-chip-label">Coach-view</span>
+            <span className="tb-coach-chip-label">{t("admin.coach")}</span>
             <span className="tb-coach-chip-name">{coachName}</span>
             <button type="button" className="pl-reset-btn" onClick={onClearAsUser}>
-              Terug
+              {t("common.back")}
             </button>
           </div>
         )}
@@ -118,7 +125,7 @@ export function Topbar({
               onChange={(e) => onSelectLogin(e.target.value)}
             >
               <option value="">
-                Alle accounts · {accounts.reduce((n, a) => n + (a.trade_count || 0), 0)} trades
+                {t("journal.allAccounts", { n: totalTrades })}
               </option>
               {accounts.map((a) => (
                 <option key={a.login} value={a.login}>
@@ -126,8 +133,8 @@ export function Topbar({
                   {a.balance != null
                     ? ` · ${fmtEurAbs(a.balance)}${a.currency ? ` ${a.currency}` : ""}`
                     : ""}
-                  {a.trade_count != null ? ` · ${a.trade_count} trades` : ""}
-                  {a.connected ? "" : " (offline)"}
+                  {a.trade_count != null ? ` · ${a.trade_count} ${t("common.trades")}` : ""}
+                  {a.connected ? "" : t("journal.offline")}
                 </option>
               ))}
             </select>
@@ -136,18 +143,18 @@ export function Topbar({
             <span className={`mt5-dot${status.connected ? " on" : ""}`} />
             <span className="tb-label-full">
               {status.connected
-                ? `MT5 verbonden${status.account?.login != null ? ` · #${status.account.login}` : ""}`
-                : "MT5 niet verbonden"}
+                ? t("journal.mt5On", { login: mt5Login })
+                : t("journal.mt5Off")}
             </span>
             <span className="tb-label-short">
-              {status.connected ? "MT5 online" : "MT5 offline"}
+              {status.connected ? t("journal.mt5Online") : t("journal.mt5Offline")}
             </span>
           </div>
           <div className="tb-clock">
             <div className="lbl">AMSTERDAM</div>
             <div className="val">{clock}</div>
           </div>
-          <div className="tb-sessions" title="Actieve sessies">
+          <div className="tb-sessions" title={t("journal.activeSessions")}>
             {activeSessions.length ? (
               activeSessions.map((s) => (
                 <div
@@ -186,7 +193,7 @@ export function Topbar({
                   borderRadius: 6,
                 }}
               >
-                Geen sessie
+                {t("journal.noSession")}
               </div>
             )}
           </div>
@@ -195,10 +202,11 @@ export function Topbar({
           {!readOnly && (
             <button className="tb-addbtn" type="button" onClick={onAddTrade}>
               <IconPlus />
-              <span className="tb-label-full">Trade toevoegen</span>
-              <span className="tb-label-short">Toevoegen</span>
+              <span className="tb-label-full">{t("journal.addTrade")}</span>
+              <span className="tb-label-short">{t("journal.addShort")}</span>
             </button>
           )}
+          <LanguageSwitcher />
           {!embedded && <UserMenu isAdmin={isAdmin} />}
         </div>
       </div>

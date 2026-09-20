@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useT } from "@/components/i18n/LocaleProvider";
 
 export function UserMenu({ isAdmin }: { isAdmin?: boolean }) {
   const { profile, logout } = useAuth();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const admin = Boolean(isAdmin || profile?.role === "admin");
@@ -43,15 +45,15 @@ export function UserMenu({ isAdmin }: { isAdmin?: boolean }) {
             <div className="user-menu-email">{profile?.email}</div>
           </div>
           <Link href="/settings" className="user-menu-item" onClick={() => setOpen(false)}>
-            Profiel &amp; instellingen
+            {t("userMenu.profile")}
           </Link>
           {admin && (
             <Link href="/admin" className="user-menu-item" onClick={() => setOpen(false)}>
-              Admin-overzicht
+              {t("userMenu.admin")}
             </Link>
           )}
           <Link href="/" className="user-menu-item" onClick={() => setOpen(false)}>
-            Homepage
+            {t("common.homepage")}
           </Link>
           <button
             type="button"
@@ -61,7 +63,7 @@ export function UserMenu({ isAdmin }: { isAdmin?: boolean }) {
               await logout();
             }}
           >
-            Uitloggen
+            {t("common.logout")}
           </button>
         </div>
       )}

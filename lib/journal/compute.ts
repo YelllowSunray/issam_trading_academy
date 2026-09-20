@@ -111,9 +111,10 @@ export function buildCurvePoints(values: number[]) {
 export function buildCurveSVG(
   points: { i: number; v: number }[],
   strokeColor: string,
+  emptyLabel = "Not enough data for a curve yet.",
 ) {
   if (points.length < 2) {
-    return '<div class="tj-curve-empty">Nog te weinig data voor een curve.</div>';
+    return `<div class="tj-curve-empty">${emptyLabel}</div>`;
   }
   const W = 480;
   const H = 180;

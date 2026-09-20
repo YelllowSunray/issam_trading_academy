@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { fetchCourse, fetchProgress, setProgress } from "@/lib/journal/api-client";
 import type { Course, LessonProgress } from "@/lib/platform/types";
@@ -20,6 +21,7 @@ function embedUrl(url: string) {
 
 function CourseInner({ courseId }: { courseId: string }) {
   const { profile, asUser } = useAuth();
+  const t = useT();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
   const [course, setCourse] = useState<Course | null>(null);
   const [progress, setProg] = useState<LessonProgress[]>([]);
@@ -35,8 +37,8 @@ function CourseInner({ courseId }: { courseId: string }) {
         const first = c.chapters[0]?.lessons[0]?.id;
         setActive(first || null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, [courseId, asUser]);
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
+  }, [courseId, asUser, t]);
 
   const done = useMemo(() => new Set(progress.map((p) => p.lessonId)), [progress]);
   const lesson = course?.chapters
@@ -65,14 +67,14 @@ function CourseInner({ courseId }: { courseId: string }) {
   return (
     <div className="journal-main">
       <Link href="/learn" className="page-header-back">
-        ← Alle cursussen
+        {t("learn.allCourses")}
       </Link>
       {error && <div className="pl-empty">{error}</div>}
       {!course ? (
-        <div className="journal-loading">Cursus laden…</div>
+        <div className="journal-loading">{t("learn.loadingCourse")}</div>
       ) : (
         <>
-          <p className="tj-eyebrow">CURSUS</p>
+          <p className="tj-eyebrow">{t("learn.courseEyebrow")}</p>
           <h1 className="tj-title">{course.title}</h1>
           <p className="pl-sub">{course.description}</p>
           <div className="learn-layout">
@@ -94,7 +96,7 @@ function CourseInner({ courseId }: { courseId: string }) {
                           ? `${l.videoFile || embedUrl(l.videoUrl) ? " · " : ""}${(l.pdfs || []).length} pdf`
                           : ""}
                       </span>
-                      {done.has(l.id) ? <span className="status-chip on">klaar</span> : null}
+                      {done.has(l.id) ? <span className="status-chip on">{t("learn.done")}</span> : null}
                     </button>
                   ))}
                 </div>
@@ -119,12 +121,12 @@ function CourseInner({ courseId }: { courseId: string }) {
                     </div>
                   ) : (
                     <div className="pl-empty" style={{ marginBottom: 14 }}>
-                      Geen video bij deze les.
+                      {t("learn.noVideo")}
                     </div>
                   )}
                   {pdfs.length ? (
                     <div className="learn-pdfs">
-                      <div className="ttl">PDF-materiaal</div>
+                      <div className="ttl">{t("learn.pdfs")}</div>
                       {pdfs.map((pdf) => (
                         <a
                           key={pdf.path || pdf.url}
@@ -146,14 +148,14 @@ function CourseInner({ courseId }: { courseId: string }) {
                       disabled={busy}
                       onClick={() => void toggleDone()}
                     >
-                      {done.has(lesson.id) ? "Markeer als open" : "Markeer als afgerond"}
+                      {done.has(lesson.id) ? t("learn.markOpen") : t("learn.markDone")}
                     </button>
                   ) : (
-                    <p className="pl-sub2">Voortgang van deze student — alleen-lezen.</p>
+                    <p className="pl-sub2">{t("learn.studentProgress")}</p>
                   )}
                 </>
               ) : (
-                <div className="pl-empty">Kies een les.</div>
+                <div className="pl-empty">{t("learn.pickLesson")}</div>
               )}
             </section>
           </div>

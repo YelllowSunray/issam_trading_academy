@@ -1,15 +1,18 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import {
   createBacktest,
   deleteBacktest,
   fetchBacktests,
 } from "@/lib/journal/api-client";
+import { labelInstrument } from "@/lib/journal/format";
 import type { TradeDirection } from "@/lib/journal/types";
 import type { BacktestEntry } from "@/lib/backtest/types";
 
 export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
+  const t = useT();
   const [rows, setRows] = useState<BacktestEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,12 +28,12 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
   function load() {
     fetchBacktests()
       .then((d) => setRows(d.entries))
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
   }
 
   useEffect(() => {
     load();
-  }, []);
+  }, [t]);
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
@@ -42,7 +45,7 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
       setForm((f) => ({ ...f, thesis: "", resultR: "", notes: "" }));
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Opslaan mislukt");
+      setError(err instanceof Error ? err.message : t("common.failed"));
     } finally {
       setBusy(false);
     }
@@ -50,18 +53,15 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
 
   return (
     <div>
-      <p className="tj-eyebrow">JOURNAL</p>
-      <h1 className="tj-title">Backtest-log</h1>
-      <p className="pl-sub">
-        Handmatige hypothese + resultaat in R. Geen strategie-engine, geen
-        automatische orders.
-      </p>
+      <p className="tj-eyebrow">{t("nav.journal")}</p>
+      <h1 className="tj-title">{t("journal.backtestTitle")}</h1>
+      <p className="pl-sub">{t("journal.backtestLead")}</p>
       {error && <div className="pl-empty">{error}</div>}
       {!readOnly && (
         <form className="tj-panel" onSubmit={(e) => void onSave(e)}>
           <div className="tj-grid3">
             <div className="tj-field">
-              <div className="lbl">Datum</div>
+              <div className="lbl">{t("journal.date")}</div>
               <input
                 type="date"
                 className="tj-input"
@@ -70,7 +70,7 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
               />
             </div>
             <div className="tj-field">
-              <div className="lbl">Instrument</div>
+              <div className="lbl">{t("journal.instrument")}</div>
               <input
                 className="tj-input"
                 value={form.instrument}
@@ -80,7 +80,7 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
               />
             </div>
             <div className="tj-field">
-              <div className="lbl">Richting</div>
+              <div className="lbl">{t("journal.direction")}</div>
               <select
                 className="tj-input"
                 value={form.direction}
@@ -97,29 +97,29 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
             </div>
           </div>
           <div className="tj-field">
-            <div className="lbl">Hypothese</div>
+            <div className="lbl">{t("journal.thesis")}</div>
             <textarea
               className="tj-input"
               rows={3}
               value={form.thesis}
               onChange={(e) => setForm((f) => ({ ...f, thesis: e.target.value }))}
-              placeholder="Wat test je, en waarom?"
+              placeholder={t("journal.thesisPlaceholder")}
             />
           </div>
           <div className="tj-grid3">
             <div className="tj-field">
-              <div className="lbl">Resultaat (R)</div>
+              <div className="lbl">{t("journal.resultR")}</div>
               <input
                 className="tj-input"
                 value={form.resultR}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, resultR: e.target.value }))
                 }
-                placeholder="+1.5 of −1"
+                placeholder={t("journal.resultPlaceholder")}
               />
             </div>
             <div className="tj-field" style={{ gridColumn: "span 2" }}>
-              <div className="lbl">Notitie</div>
+              <div className="lbl">{t("journal.note")}</div>
               <input
                 className="tj-input"
                 value={form.notes}
@@ -128,22 +128,22 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
             </div>
           </div>
           <button className="tj-savebtn" type="submit" disabled={busy}>
-            {busy ? "Opslaan…" : "Setup loggen"}
+            {busy ? t("common.saving") : t("journal.logSetup")}
           </button>
         </form>
       )}
       <div className="tj-panel">
         {!rows.length ? (
-          <div className="tj-empty">Nog geen backtests gelogd.</div>
+          <div className="tj-empty">{t("journal.noBacktests")}</div>
         ) : (
           rows.map((r) => (
             <div key={r.id} className="bt-row">
               <div>
                 <strong>
-                  {r.date} · {r.instrument} · {r.direction}
+                  {r.date} · {labelInstrument(r.instrument, t("journal.other"))} · {r.direction}
                 </strong>
                 <p>{r.thesis}</p>
-                {r.resultR ? <p>Resultaat: {r.resultR}R</p> : null}
+                {r.resultR ? <p>{t("journal.result", { r: r.resultR })}</p> : null}
                 {r.notes ? <p className="pl-sub2">{r.notes}</p> : null}
               </div>
               {!readOnly && (
@@ -155,7 +155,7 @@ export function BacktestPanel({ readOnly = false }: { readOnly?: boolean }) {
                     load();
                   }}
                 >
-                  Weg
+                  {t("common.remove")}
                 </button>
               )}
             </div>

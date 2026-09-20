@@ -1,35 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { SignalCard } from "@/components/signals/SignalCard";
 import { fetchSignals } from "@/lib/journal/api-client";
-import { SIGNAL_DISCLAIMER, type TradeSignal } from "@/lib/signals/types";
+import type { TradeSignal } from "@/lib/signals/types";
 
 function SignalsInner() {
+  const t = useT();
   const [signals, setSignals] = useState<TradeSignal[]>([]);
-  const [disclaimer, setDisclaimer] = useState(SIGNAL_DISCLAIMER);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSignals()
       .then((d) => {
         setSignals(d.signals);
-        setDisclaimer(d.disclaimer);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, []);
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
+  }, [t]);
 
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">CALLS</p>
-      <h1 className="tj-title">Signals</h1>
-      <p className="pl-sub">
-        Entry, SL, TP en rationale. Geen automatische executie — jij handelt
-        zelf.
-      </p>
+      <p className="tj-eyebrow">{t("signals.eyebrow")}</p>
+      <h1 className="tj-title">{t("signals.title")}</h1>
+      <p className="pl-sub">{t("signals.lead")}</p>
       <div className="pl-empty" style={{ marginBottom: 16 }}>
-        {disclaimer}
+        {t("signals.disclaimer")}
       </div>
       {error && <div className="pl-empty">{error}</div>}
       <div className="sig-list">
@@ -38,10 +35,7 @@ function SignalsInner() {
         ))}
       </div>
       {!signals.length && !error ? (
-        <div className="pl-empty">
-          Nog geen calls. Dit is de gedeelde academy-feed, geen journal per
-          student. Plaats een signaal in Admin → Signalen.
-        </div>
+        <div className="pl-empty">{t("signals.empty")}</div>
       ) : null}
     </div>
   );

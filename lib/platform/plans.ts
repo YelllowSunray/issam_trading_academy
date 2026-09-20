@@ -2,11 +2,11 @@ export const VIP_PUBLIC_CHANNEL = "https://t.me/tradingacadamyy";
 
 export const VIP_PERKS = [
   "Calls & setups",
-  "Uitgebreide analyses (entry, SL, TP)",
+  "Full analyses (entry, SL, TP)",
   "Group calls",
-  "VIP Telegram-groep",
-  "Academy + certificaten",
-  "MT5-journal & P&L",
+  "VIP Telegram group",
+  "Academy + certificates",
+  "MT5 journal & P&L",
 ];
 
 export type VipPlanId = "monthly" | "quarterly" | "semiannual" | "yearly";
@@ -22,28 +22,28 @@ export type VipPlan = {
 export const VIP_PLANS: VipPlan[] = [
   {
     id: "monthly",
-    label: "1 maand",
+    label: "1 month",
     priceLabel: "€100",
-    cadence: "/ maand",
+    cadence: "/ month",
   },
   {
     id: "quarterly",
-    label: "3 maanden",
+    label: "3 months",
     priceLabel: "€250",
-    cadence: "/ 3 maanden",
+    cadence: "/ 3 months",
     highlight: true,
   },
   {
     id: "semiannual",
-    label: "6 maanden",
+    label: "6 months",
     priceLabel: "€500",
-    cadence: "/ 6 maanden",
+    cadence: "/ 6 months",
   },
   {
     id: "yearly",
-    label: "1 jaar",
+    label: "1 year",
     priceLabel: "€1000",
-    cadence: "/ jaar",
+    cadence: "/ year",
   },
 ];
 

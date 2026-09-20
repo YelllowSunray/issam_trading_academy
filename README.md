@@ -1,4 +1,4 @@
-# TradingAcadamy — Journal & P&L
+# Tradechain — Journal & P&L
 
 Multi-tenant trading journal for the academy: students each have their own journal; Issam is both a trader and admin. Data lives in Firebase (Auth + Firestore + Storage). MT5 syncs via Next.js API routes with a per-user ingest secret.
 

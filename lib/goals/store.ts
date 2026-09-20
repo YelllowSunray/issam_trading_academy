@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 import { trackUsage } from "@/lib/billing/meter";
 import { userRef } from "@/lib/users/store";
 import type { GoalItem } from "./types";
@@ -50,7 +51,7 @@ export async function upsertGoal(
   const existing = await col(uid).doc(id).get();
   const prev = existing.exists ? (existing.data() as GoalItem) : null;
   const title = (input.title ?? prev?.title ?? "").trim();
-  if (!title) throw new ApiError("Titel is verplicht", 400);
+  if (!title) throw new ApiError(await tRequest("api.titleRequired"), 400);
   const rec: GoalItem = {
     id,
     title,

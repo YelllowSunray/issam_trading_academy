@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { fetchCourses, fetchProgress } from "@/lib/journal/api-client";
 import type { Course, LessonProgress } from "@/lib/platform/types";
 
 function LearnInner() {
   const { asUser } = useAuth();
+  const t = useT();
   const [courses, setCourses] = useState<Course[]>([]);
   const [progress, setProgress] = useState<LessonProgress[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -19,21 +21,18 @@ function LearnInner() {
         setCourses(c);
         setProgress(p);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, [asUser]);
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
+  }, [asUser, t]);
 
   const done = new Set(progress.map((p) => p.lessonId));
 
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">ACADEMY</p>
-      <h1 className="tj-title">Cursussen</h1>
-      <p className="pl-sub">
-        Video, PDF en korte samenvatting per les. Voortgang wordt per account
-        bijgehouden.
-      </p>
+      <p className="tj-eyebrow">{t("learn.eyebrow")}</p>
+      <h1 className="tj-title">{t("learn.title")}</h1>
+      <p className="pl-sub">{t("learn.lead")}</p>
       <Link href="/learn/certificates" className="pl-reset-btn" style={{ marginBottom: 16 }}>
-        Certificates
+        {t("learn.certTitle")}
       </Link>
       {error && <div className="pl-empty">{error}</div>}
       <div className="plat-card-grid">
@@ -44,9 +43,9 @@ function LearnInner() {
             .filter((l) => done.has(l.id)).length;
           return (
             <Link key={course.id} href={`/learn/${course.id}`} className="plat-card">
-              <div className="pl-label">Cursus</div>
+              <div className="pl-label">{t("learn.course")}</div>
               <h2>{course.title}</h2>
-              <p>{course.description || "Geen beschrijving"}</p>
+              <p>{course.description || t("learn.noDescription")}</p>
               <div className="plat-progress">
                 <div
                   className="plat-progress-fill"
@@ -54,17 +53,18 @@ function LearnInner() {
                 />
               </div>
               <div className="pl-sub2">
-                {completed}/{total} lessen · {course.chapters.length} hoofdstukken
+                {t("learn.progress", {
+                  done: completed,
+                  total,
+                  chapters: course.chapters.length,
+                })}
               </div>
             </Link>
           );
         })}
       </div>
       {!courses.length && !error && (
-        <div className="pl-empty">
-          Nog geen gepubliceerde cursussen. Admins kunnen modules aanmaken in
-          Admin → Cursussen.
-        </div>
+        <div className="pl-empty">{t("learn.empty")}</div>
       )}
     </div>
   );

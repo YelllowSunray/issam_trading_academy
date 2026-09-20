@@ -146,7 +146,7 @@ export async function uploadScreenshot(
   filenameHint?: string,
 ): Promise<string> {
   const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
-  if (!match) throw new Error("Ongeldige image data-url");
+  if (!match) throw new Error("Invalid image data-url");
 
   const contentType = match[1];
   const buffer = Buffer.from(match[2], "base64");

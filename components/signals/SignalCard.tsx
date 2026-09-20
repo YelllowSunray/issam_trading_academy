@@ -1,4 +1,7 @@
-import { SIGNAL_DISCLAIMER, type TradeSignal } from "@/lib/signals/types";
+"use client";
+
+import { useT } from "@/components/i18n/LocaleProvider";
+import type { TradeSignal } from "@/lib/signals/types";
 
 export function SignalCard({
   signal,
@@ -7,6 +10,7 @@ export function SignalCard({
   signal: TradeSignal;
   compact?: boolean;
 }) {
+  const t = useT();
   return (
     <article className="sig-card">
       <div className="sig-head">
@@ -26,7 +30,7 @@ export function SignalCard({
         ))}
       </div>
       {!compact && signal.thesis ? <p className="sig-thesis">{signal.thesis}</p> : null}
-      <p className="sig-disclaimer">{SIGNAL_DISCLAIMER}</p>
+      <p className="sig-disclaimer">{t("signals.disclaimer")}</p>
     </article>
   );
 }

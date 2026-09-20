@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminDb } from "@/lib/firebase/admin";
 import type { TradeDirection } from "@/lib/journal/types";
@@ -65,7 +66,7 @@ export async function upsertSignal(
     updatedAt: now,
   };
   if (!rec.instrument || !rec.entry || !rec.sl) {
-    throw new ApiError("instrument, entry en SL zijn verplicht", 400);
+    throw new ApiError(await tRequest("api.instrumentEntrySlRequired"), 400);
   }
   await col().doc(id).set(rec);
   await meter({ writes: 1, reads: existing ? 1 : 0 });

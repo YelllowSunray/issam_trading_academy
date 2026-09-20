@@ -22,7 +22,7 @@ export function resizeImage(
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          reject(new Error("Canvas niet beschikbaar"));
+          reject(new Error("Canvas is unavailable"));
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);

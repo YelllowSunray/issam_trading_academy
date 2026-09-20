@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/components/i18n/LocaleProvider";
+
 export type BillingLockInfo = {
   exceeded: boolean;
   budgetEur: number;
@@ -35,6 +37,7 @@ export function BillingLock({
   onUnlock?: () => void;
   unlocking?: boolean;
 }) {
+  const t = useT();
   const message = canManageBilling
     ? info.ownerMessage || info.adminMessage
     : info.studentMessage;
@@ -52,9 +55,12 @@ export function BillingLock({
 
         {canManageBilling && info.usage && (
           <div className="pl-sub2" style={{ marginTop: 14 }}>
-            Geschatte app-usage {info.usage.period}: €
-            {info.usage.estimatedCostEur.toFixed(2)} / €{info.budgetEur} (
-            {info.usage.percentUsed.toFixed(0)}%)
+            {t("billing.usage", {
+              period: info.usage.period,
+              used: info.usage.estimatedCostEur.toFixed(2),
+              budget: info.budgetEur,
+              pct: info.usage.percentUsed.toFixed(0),
+            })}
           </div>
         )}
 
@@ -67,11 +73,11 @@ export function BillingLock({
                 disabled={unlocking}
                 onClick={onUnlock}
               >
-                {unlocking ? "Ontgrendelen…" : "Ontgrendel app (na betaalplan)"}
+                {unlocking ? t("billing.unlocking") : t("billing.unlock")}
               </button>
             )}
             <p className="pl-sub2">
-              Issam ziet een lock-scherm met jouw WhatsApp/e-mail tot jij ontgrendelt.
+              {t("billing.ownerNote")}
             </p>
           </div>
         ) : (
@@ -90,15 +96,14 @@ export function BillingLock({
             <a
               className="pl-reset-btn"
               href={`mailto:${info.contactEmail}?subject=${encodeURIComponent(
-                "TradingAcadamy Firebase budget / betaalplan",
+                t("billing.mailSubject"),
               )}`}
               style={{ textAlign: "center", textDecoration: "none" }}
             >
-              E-mail {info.contactEmail}
+              {t("common.email")} {info.contactEmail}
             </a>
             <p className="pl-sub2">
-              De app werkt weer zodra Samir een betaalplan heeft afgesproken en de
-              blokkade opheft.
+              {t("billing.studentNote")}
             </p>
           </div>
         )}

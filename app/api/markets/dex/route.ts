@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { jsonError, withApiError } from "@/lib/api/errors";
 import { requireAuthUser } from "@/lib/auth/request";
+import { tRequest } from "@/lib/i18n/server";
 
 async function searchPairs(q: string) {
   const res = await fetch(
     `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`,
     {
       next: { revalidate: 30 },
-      headers: { Accept: "application/json", "User-Agent": "TradingAcadamy/1.0" },
+      headers: { Accept: "application/json", "User-Agent": "Tradechain/1.0" },
     },
   );
   if (!res.ok) return [];
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   return withApiError(async () => {
     await requireAuthUser(req);
     const q = new URL(req.url).searchParams.get("q")?.trim() || "SOL";
-    if (q.length < 2) return jsonError("zoekterm te kort");
+    if (q.length < 2) return jsonError(await tRequest("api.searchTooShort"));
 
     let pairs = await searchPairs(q);
     if (!pairs.length && q.toUpperCase() === "BTC") {
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
         "https://api.dexscreener.com/token-boosts/top/v1",
         {
           next: { revalidate: 60 },
-          headers: { Accept: "application/json", "User-Agent": "TradingAcadamy/1.0" },
+          headers: { Accept: "application/json", "User-Agent": "Tradechain/1.0" },
         },
       );
       if (boosts.ok) {

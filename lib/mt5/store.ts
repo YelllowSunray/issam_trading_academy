@@ -103,7 +103,7 @@ export async function receiveTrade(
   uid: string,
   data: Mt5Trade & { login?: unknown },
 ) {
-  if (!data?.id) throw new Error("ongeldige payload");
+  if (!data?.id) throw new Error("invalid payload");
   const login = loginFrom(data);
   await migrateLegacyIfNeeded(uid, login);
   const accRef = await ensureAccount(uid, login);
@@ -147,7 +147,7 @@ export async function receiveTradesBatch(
   trades: Array<Mt5Trade & { login?: unknown }>,
 ) {
   const resolved = String(login || "").trim();
-  if (!resolved) throw new Error("login verplicht");
+  if (!resolved) throw new Error("login required");
   await migrateLegacyIfNeeded(uid, resolved);
   await ensureAccount(uid, resolved);
 

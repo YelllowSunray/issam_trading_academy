@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 
 const DEFAULT_MODEL = "openai/gpt-oss-20b";
 
@@ -13,7 +14,7 @@ export async function groqChat(input: {
   temperature?: number;
 }): Promise<string> {
   const key = process.env.GROQ_API_KEY?.trim();
-  if (!key) throw new ApiError("GROQ_API_KEY ontbreekt", 500);
+  if (!key) throw new ApiError(await tRequest("api.groqKeyMissing"), 500);
 
   const [first, ...rest] = input.messages;
   const messages =
@@ -51,6 +52,6 @@ export async function groqChat(input: {
   const text = Array.isArray(raw)
     ? raw.map((part) => part.text || "").join("").trim()
     : raw?.trim();
-  if (!text) throw new ApiError("Groq gaf geen tekst terug", 502);
+  if (!text) throw new ApiError(await tRequest("api.groqEmpty"), 502);
   return text;
 }

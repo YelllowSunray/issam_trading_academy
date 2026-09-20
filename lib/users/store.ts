@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminDb } from "@/lib/firebase/admin";
 import { hashIngestSecret, secretsEqual } from "@/lib/auth/secrets";
@@ -120,7 +121,7 @@ export async function updateUserProfile(
       : existing.displayName;
 
   if (!displayName || displayName.length < 2) {
-    throw new ApiError("Naam moet minstens 2 tekens zijn", 400);
+    throw new ApiError(await tRequest("api.nameMinChars"), 400);
   }
 
   const next: UserProfile = {
@@ -221,7 +222,7 @@ export async function listCoachStudents(): Promise<UserProfile[]> {
     const aT = a.lastJournalActivityAt || "";
     const bT = b.lastJournalActivityAt || "";
     if (aT !== bT) return bT.localeCompare(aT);
-    return (a.displayName || "").localeCompare(b.displayName || "", "nl");
+    return (a.displayName || "").localeCompare(b.displayName || "", "en");
   });
 }
 
@@ -235,7 +236,7 @@ export async function setUserMembership(
     throw new ApiError("user not found", 404);
   }
   if (existing.role === "admin" && membership !== "coaching_free") {
-    throw new ApiError("admins houden altijd toegang", 400);
+    throw new ApiError(await tRequest("api.adminsKeepAccess"), 400);
   }
   const now = new Date().toISOString();
   await userRef(uid).set(

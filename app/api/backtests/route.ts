@@ -7,6 +7,7 @@ import {
   listBacktests,
 } from "@/lib/backtest/store";
 import type { TradeDirection } from "@/lib/journal/types";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
       notes?: string;
     };
     if (!body.instrument || !body.thesis) {
-      return jsonError("instrument en hypothese zijn verplicht");
+      return jsonError(await tRequest("api.instrumentHypothesisRequired"));
     }
     const entry = await createBacktest(uid, {
       date: body.date || new Date().toISOString().slice(0, 10),
@@ -48,7 +49,7 @@ export async function DELETE(req: Request) {
     const user = await requireAuthUser(req);
     const uid = await requireSelfUid(req, user);
     const body = (await req.json().catch(() => ({}))) as { id?: string };
-    if (!body.id) return jsonError("id ontbreekt");
+    if (!body.id) return jsonError(await tRequest("api.idRequired"));
     await deleteBacktest(uid, body.id);
     return NextResponse.json({ ok: true });
   });

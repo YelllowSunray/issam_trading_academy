@@ -3,6 +3,7 @@ import { jsonError, withApiError } from "@/lib/api/errors";
 import { requireAdmin } from "@/lib/auth/request";
 import { unlinkCloudAccount } from "@/lib/api2trade/sync";
 import { writeAuditLog } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function DELETE(
   req: Request,
@@ -11,7 +12,7 @@ export async function DELETE(
   return withApiError(async () => {
     const admin = await requireAdmin(req);
     const { id } = await ctx.params;
-    if (!id) return jsonError("id verplicht");
+    if (!id) return jsonError(await tRequest("api.idRequired"));
     const { searchParams } = new URL(req.url);
     const deleteVendor = searchParams.get("vendor") === "1";
     const rec = await unlinkCloudAccount(id, { deleteVendor });

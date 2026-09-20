@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { AuthPage } from "@/components/platform/AuthPage";
 import { TelegramLogin } from "@/components/platform/TelegramLogin";
 import { fetchCommunityInvite } from "@/lib/journal/api-client";
@@ -21,6 +22,7 @@ type Invite = {
 
 function CommunityInner() {
   const { profile, asUser } = useAuth();
+  const t = useT();
   const readOnly = Boolean(asUser && asUser !== profile?.uid);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,8 +30,8 @@ function CommunityInner() {
   const load = useCallback(() => {
     fetchCommunityInvite()
       .then(setInvite)
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
-  }, []);
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -39,19 +41,17 @@ function CommunityInner() {
 
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">COMMUNITY</p>
+      <p className="tj-eyebrow">{t("community.eyebrow")}</p>
       <h1 className="tj-title">{invite?.label || "Telegram"}</h1>
       <p className="pl-sub">
-        {invite?.note ||
-          "Geen eigen chat in de app. Koppel Telegram; de bot maakt een persoonlijke invite naar de juiste groep."}
+        {invite?.note || t("community.defaultNote")}
       </p>
       {error && <div className="pl-empty">{error}</div>}
 
       <div className="tj-panel" style={{ marginBottom: 16 }}>
-        <div className="ttl">Publieke channel</div>
+        <div className="ttl">{t("community.publicChannel")}</div>
         <p className="pl-sub2" style={{ margin: "8px 0 12px" }}>
-          Volg updates op de open channel — dat is geen vervanging van de
-          leden-groep.
+          {t("community.publicLead")}
         </p>
         <a
           href={channel}
@@ -60,16 +60,19 @@ function CommunityInner() {
           className="tb-addbtn"
           style={{ textDecoration: "none" }}
         >
-          Open @tradingacadamyy
+          {t("community.openPublic")}
         </a>
       </div>
 
       <div className="tj-panel">
-        <div className="ttl">Jouw groep</div>
+        <div className="ttl">{t("community.yourGroup")}</div>
         <p className="pl-sub2" style={{ margin: "8px 0 12px" }}>
           {invite?.linked
-            ? `Gekoppeld als @${invite.telegramUsername || "telegram"} · ${invite.tier === "vip" ? "VIP" : "normaal"}`
-            : "Eerst Telegram Login, daarna een eenmalige invite (24 uur, 1 persoon)."}
+            ? t("community.linkedAs", {
+                user: invite.telegramUsername || "telegram",
+                tier: invite.tier === "vip" ? t("dashboard.vipGroup") : t("dashboard.normalGroup"),
+              })
+            : t("community.firstLogin")}
         </p>
         {!readOnly && !invite?.linked && invite?.botUsername ? (
           <TelegramLogin
@@ -79,7 +82,7 @@ function CommunityInner() {
           />
         ) : null}
         {readOnly && !invite?.linked ? (
-          <p className="pl-sub2">Deze student heeft Telegram nog niet gekoppeld.</p>
+          <p className="pl-sub2">{t("community.notLinked")}</p>
         ) : null}
         {invite?.url ? (
           <a
@@ -89,12 +92,13 @@ function CommunityInner() {
             className="tb-addbtn"
             style={{ display: "inline-flex", textDecoration: "none", marginTop: 12 }}
           >
-            Open jouw {invite.tier === "vip" ? "VIP-" : ""}groep
+            {t("community.openGroup", {
+              tier: invite.tier === "vip" ? t("community.vipPrefix") : "",
+            })}
           </a>
         ) : invite?.linked ? (
           <div className="pl-empty" style={{ marginTop: 12 }}>
-            Invite nog niet klaar. Zet chat-IDs in Admin → Community en maak de
-            bot admin in beide groepen.
+            {t("community.invitePending")}
           </div>
         ) : null}
       </div>

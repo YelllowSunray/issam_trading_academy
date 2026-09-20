@@ -12,15 +12,15 @@ async function meter(delta: Parameters<typeof trackUsage>[0]) {
 
 const DEFAULTS: PlatformSettings = {
   telegramInviteUrl: "",
-  telegramLabel: "TradingAcadamy Community",
+  telegramLabel: "Tradechain Community",
   communityNote:
-    "Koppel je Telegram-account. De bot stuurt je een persoonlijke invite naar de juiste groep (VIP of normaal).",
+    "Connect your Telegram account. The bot sends a personal invite to the right group (VIP or standard).",
   telegramVipChatId: "",
   telegramNormalChatId: "",
   stripeEnabled: false,
-  subscriberPriceLabel: "€100 / maand",
+  subscriberPriceLabel: "€100 / month",
   coachingPriceNote:
-    "Inbegrepen bij 1:1 coaching. Prijs spreek je met Issam af — niet via Stripe.",
+    "Included with 1:1 coaching. You agree the price with Issam — not via Stripe.",
 };
 
 export function stripeConfigured() {

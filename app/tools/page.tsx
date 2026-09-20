@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { TradingViewCalendar } from "@/components/markets/TradingViewChart";
 
@@ -10,6 +11,7 @@ function num(v: string) {
 }
 
 function ToolsInner() {
+  const t = useT();
   const [balance, setBalance] = useState("10000");
   const [riskPct, setRiskPct] = useState("1");
   const [entry, setEntry] = useState("2340");
@@ -30,12 +32,9 @@ function ToolsInner() {
 
   return (
     <div className="journal-main">
-      <p className="tj-eyebrow">TOOLS</p>
-      <h1 className="tj-title">Calculators & kalender</h1>
-      <p className="pl-sub">
-        Position size en R:R op basis van account-risico. Plus de economische
-        kalender.
-      </p>
+      <p className="tj-eyebrow">{t("tools.eyebrow")}</p>
+      <h1 className="tj-title">{t("tools.title")}</h1>
+      <p className="pl-sub">{t("tools.lead")}</p>
 
       <div className="pl-two-col">
         <section className="tj-panel">
@@ -68,7 +67,7 @@ function ToolsInner() {
           </div>
           <div className="pl-kpi-grid" style={{ marginTop: 16 }}>
             <div className="pl-kpi">
-              <div className="pl-label">Risico</div>
+              <div className="pl-label">{t("tools.risk")}</div>
               <div className="pl-value">€{size.riskEur.toFixed(2)}</div>
             </div>
             <div className="pl-kpi">
@@ -86,7 +85,7 @@ function ToolsInner() {
           </label>
           <div className="pl-kpi-grid" style={{ marginTop: 16 }}>
             <div className="pl-kpi">
-              <div className="pl-label">SL afstand</div>
+              <div className="pl-label">{t("tools.slDistance")}</div>
               <div className="pl-value">{size.stop.toFixed(2)}</div>
             </div>
             <div className="pl-kpi">
@@ -95,14 +94,17 @@ function ToolsInner() {
             </div>
           </div>
           <p className="pl-sub2" style={{ marginTop: 12 }}>
-            Reward {size.reward.toFixed(2)} / risico {size.stop.toFixed(2)}.
+            {t("tools.rrNote", {
+              reward: size.reward.toFixed(2),
+              stop: size.stop.toFixed(2),
+            })}
           </p>
         </section>
       </div>
 
       <section className="tj-panel" style={{ marginTop: 16, padding: 0, overflow: "hidden" }}>
         <div className="ttl" style={{ padding: "16px 18px 0" }}>
-          Economische kalender
+          {t("tools.calendar")}
         </div>
         <TradingViewCalendar />
       </section>

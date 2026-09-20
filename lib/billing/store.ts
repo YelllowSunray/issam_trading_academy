@@ -1,6 +1,8 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { getUsageSnapshot } from "@/lib/billing/meter";
 import { billingOwnerEmail } from "@/lib/billing/owner";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/translate";
 
 export type BillingState = {
   exceeded: boolean;
@@ -22,30 +24,30 @@ function billingRef() {
 export function billingPublicMessage(
   state: BillingState,
   usage?: Awaited<ReturnType<typeof getUsageSnapshot>>,
+  locale: Locale = DEFAULT_LOCALE,
 ) {
   const budget = state.budgetEur || DEFAULT_BUDGET;
   const ownerEmail = billingOwnerEmail();
-  const customerMessage =
-    `Het maandbudget van €${budget} voor Google Firebase/database-kosten is overschreden. ` +
-    `De app is tijdelijk geblokkeerd voor iedereen. Neem contact op met Samir (${state.contactEmail}) ` +
-    `via WhatsApp of e-mail om een betaalplan voor de Google-databasekosten af te spreken. ` +
-    `Zodra dat geregeld is, zet Samir de app weer aan.`;
+  const t = (key: string, vars?: Record<string, string | number>) =>
+    translate(locale, key, vars);
+  const customerMessage = t("billing.studentMessage", {
+    budget,
+    email: state.contactEmail,
+  });
   return {
     exceeded: state.exceeded,
     budgetEur: budget,
-    title: "App tijdelijk gestopt — databasebudget bereikt",
+    title: t("billing.title"),
     studentMessage: customerMessage,
     adminMessage: customerMessage,
-    ownerMessage:
-      `Budget €${budget} overschreden (of handmatig geblokkeerd). Issam/studenten zien een lock-scherm met jouw WhatsApp/e-mail. ` +
-      `Ontgrendel pas nadat er een betaalplan is afgesproken.`,
+    ownerMessage: t("billing.ownerMessage", { budget }),
     ownerEmail,
     contactName: state.contactName,
     contactEmail: state.contactEmail,
     whatsappE164: state.whatsappE164,
     whatsappUrl: state.whatsappE164
       ? `https://wa.me/${state.whatsappE164.replace(/\D/g, "")}?text=${encodeURIComponent(
-          `Hoi Samir, het Firebase/database-budget (€${budget}) voor TradingAcadamy is bereikt. Kunnen we een betaalplan afspreken voor de Google-databasekosten?`,
+          t("billing.waText", { budget }),
         )}`
       : null,
     usage: usage

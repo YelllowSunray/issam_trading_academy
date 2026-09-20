@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { MemberPage } from "@/components/platform/MemberPage";
 import {
   fetchCryptoMarkets,
@@ -64,6 +65,7 @@ function CoinLogo({ src, symbol }: { src?: string | null; symbol: string }) {
 }
 
 function CryptoInner() {
+  const t = useT();
   const [majors, setMajors] = useState<
     Array<{
       id: string;
@@ -90,14 +92,14 @@ function CryptoInner() {
         setMajors(r.coins || []);
         if (r.error) setError(r.error);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
     fetchDexTrending()
       .then((r) => {
         setTrending(r.coins || []);
         if (r.note) setNote(r.note);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "DexScreener mislukt"));
-  }, []);
+      .catch((e) => setError(e instanceof Error ? e.message : t("crypto.dexFailed")));
+  }, [t]);
 
   const ranked = useMemo(() => sortTrending(trending, window).slice(0, 24), [trending, window]);
 
@@ -114,7 +116,7 @@ function CryptoInner() {
       const res = await fetchHyperliquid(wallet);
       setHl(res.state);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Hyperliquid mislukt");
+      setError(err instanceof Error ? err.message : t("crypto.hlFailed"));
     }
   }
 
@@ -129,19 +131,15 @@ function CryptoInner() {
     <div className="journal-main dx-page">
       <div className="dx-head">
         <div>
-          <p className="tj-eyebrow">CRYPTO · LIVE FEED</p>
-          <h1 className="tj-title">DexScreener</h1>
-          <p className="pl-sub">
-            Educatie + marktdata. Geen orders vanuit het platform. Geen
-            custodial wallet — later eigen wallet koppelen (WalletConnect of
-            Privy).
-          </p>
+          <p className="tj-eyebrow">{t("crypto.eyebrow")}</p>
+          <h1 className="tj-title">{t("crypto.title")}</h1>
+          <p className="pl-sub">{t("crypto.lead")}</p>
           <div className="plat-chip-row" style={{ marginTop: 10 }}>
             <Link href="/markets" className="pl-reset-btn">
               Markets
             </Link>
             <Link href="/news" className="pl-reset-btn">
-              Nieuws
+              {t("crypto.news")}
             </Link>
           </div>
         </div>
@@ -179,8 +177,12 @@ function CryptoInner() {
 
       <section className="tj-panel dx-panel">
         <div className="dx-panel-head">
-          <div className="ttl">Trending · {WINDOWS.find((w) => w.id === window)?.label}</div>
-          <span className="dx-count">{ranked.length} pairs</span>
+          <div className="ttl">
+            {t("crypto.trending", {
+              window: WINDOWS.find((w) => w.id === window)?.label || "",
+            })}
+          </div>
+          <span className="dx-count">{t("crypto.pairs", { n: ranked.length })}</span>
         </div>
         <div className="dx-grid">
           {ranked.map((c, i) => (
@@ -210,11 +212,11 @@ function CryptoInner() {
             </a>
           ))}
         </div>
-        {!ranked.length && <div className="tj-empty">Nog geen trending data.</div>}
+        {!ranked.length && <div className="tj-empty">{t("crypto.noTrending")}</div>}
       </section>
 
       <section className="tj-panel dx-panel">
-        <div className="ttl">Pair search</div>
+        <div className="ttl">{t("crypto.pairSearch")}</div>
         <form onSubmit={(e) => void onDex(e)} className="plat-inline-form">
           <input
             className="tj-input"
@@ -231,9 +233,9 @@ function CryptoInner() {
             <thead>
               <tr>
                 <th>Pair</th>
-                <th>Prijs</th>
-                <th>Liq.</th>
-                <th>24u vol</th>
+                <th>{t("crypto.price")}</th>
+                <th>{t("crypto.liq")}</th>
+                <th>{t("crypto.vol24")}</th>
               </tr>
             </thead>
             <tbody>
@@ -263,10 +265,9 @@ function CryptoInner() {
       </section>
 
       <section className="tj-panel dx-panel">
-        <div className="ttl">Hyperliquid · adres-lookup</div>
+        <div className="ttl">{t("crypto.hlTitle")}</div>
         <p className="pl-sub2" style={{ margin: "6px 0 10px" }}>
-          Plak een adres. Sleutels blijven bij jou — we bouwen geen eigen
-          key-management.
+          {t("crypto.hlLead")}
         </p>
         <form onSubmit={(e) => void onHl(e)} className="plat-inline-form">
           <input
@@ -305,7 +306,7 @@ function CryptoInner() {
               </tbody>
             </table>
             {!positions.length && (
-              <div className="tj-empty">Geen open posities op dit adres.</div>
+              <div className="tj-empty">{t("crypto.noPositions")}</div>
             )}
           </div>
         )}

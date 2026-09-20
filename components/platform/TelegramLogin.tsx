@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { loginTelegram } from "@/lib/journal/api-client";
 
 declare global {
@@ -18,6 +19,7 @@ export function TelegramLogin({
   onLinked: () => void;
   onError?: (msg: string) => void;
 }) {
+  const t = useT();
   const host = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export function TelegramLogin({
       void loginTelegram(user)
         .then(() => onLinked())
         .catch((e) =>
-          onError?.(e instanceof Error ? e.message : "Telegram-koppeling mislukt"),
+          onError?.(e instanceof Error ? e.message : t("community.telegramFailed")),
         );
     };
     const script = document.createElement("script");
@@ -42,14 +44,10 @@ export function TelegramLogin({
     return () => {
       delete window.onTelegramAuth;
     };
-  }, [botUsername, onError, onLinked]);
+  }, [botUsername, onError, onLinked, t]);
 
   if (!botUsername) {
-    return (
-      <p className="pl-sub2">
-        Telegram Login is nog niet geconfigureerd (bot-username ontbreekt).
-      </p>
-    );
+    return <p className="pl-sub2">{t("community.telegramMissing")}</p>;
   }
 
   return <div ref={host} className="tg-login" />;

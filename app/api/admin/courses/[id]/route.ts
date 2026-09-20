@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { jsonError, withApiError } from "@/lib/api/errors";
 import { requireAdmin } from "@/lib/auth/request";
 import { deleteCourse, getCourse, saveCourse } from "@/lib/courses/store";
+import { tRequest } from "@/lib/i18n/server";
 import type { CourseChapter } from "@/lib/platform/types";
 import { writeAuditLog } from "@/lib/users/store";
 
@@ -13,7 +14,7 @@ export async function GET(
     await requireAdmin(req);
     const { id } = await ctx.params;
     const course = await getCourse(id);
-    if (!course) return jsonError("cursus niet gevonden", 404);
+    if (!course) return jsonError(await tRequest("api.courseNotFound"), 404);
     return NextResponse.json(course);
   });
 }
@@ -26,7 +27,7 @@ export async function PUT(
     const admin = await requireAdmin(req);
     const { id } = await ctx.params;
     const existing = await getCourse(id);
-    if (!existing) return jsonError("cursus niet gevonden", 404);
+    if (!existing) return jsonError(await tRequest("api.courseNotFound"), 404);
     const body = (await req.json()) as {
       title?: string;
       description?: string;

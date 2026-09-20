@@ -13,6 +13,7 @@ import {
   toCloudRows,
 } from "@/lib/api2trade/store";
 import { writeAuditLog } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
       try {
         vendor = await getVendorAccounts();
       } catch (err) {
-        vendorError = err instanceof Error ? err.message : "GetAccounts mislukt";
+        vendorError = err instanceof Error ? err.message : await tRequest("api.getAccountsFailed");
       }
     }
     return NextResponse.json({
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
   return withApiError(async () => {
     const admin = await requireAdmin(req);
     if (!api2tradeConfigured()) {
-      return jsonError("API2TRADE_API_KEY ontbreekt", 500);
+      return jsonError(await tRequest("api.api2tradeKeyMissing"), 500);
     }
     const body = (await req.json()) as {
       mode?: "register" | "map";
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
       accountId?: string;
     };
     const email = (body.email || "").trim().toLowerCase();
-    if (!email) return jsonError("e-mail verplicht");
+    if (!email) return jsonError(await tRequest("api.emailRequired"));
 
     if (body.mode === "map" || body.accountId) {
       const result = await mapExistingAccount({

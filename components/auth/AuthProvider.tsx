@@ -20,6 +20,7 @@ import {
   type User,
 } from "firebase/auth";
 import { getClientAuth } from "@/lib/firebase/client";
+import { getClientLocale, translate } from "@/lib/i18n";
 import { setAuthTokenGetter, setAsUserOverride } from "@/lib/journal/api-client";
 import type { AuthUser, CoachTarget } from "@/lib/auth/types";
 
@@ -173,7 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async registerEmail(email, password, displayName) {
         const name = displayName.trim();
         if (name.length < 2) {
-          throw new Error("Vul je naam in (minstens 2 tekens).");
+          throw new Error(translate(getClientLocale(), "auth.nameRequired"));
         }
         const cred = await createUserWithEmailAndPassword(
           getClientAuth(),
@@ -205,10 +206,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async updateDisplayName(displayName) {
         const name = displayName.trim();
         if (name.length < 2) {
-          throw new Error("Vul je naam in (minstens 2 tekens).");
+          throw new Error(translate(getClientLocale(), "auth.nameRequired"));
         }
         const user = getClientAuth().currentUser;
-        if (!user) throw new Error("Niet ingelogd");
+        if (!user) throw new Error(translate(getClientLocale(), "auth.notLoggedIn"));
         await updateProfile(user, { displayName: name });
         await user.getIdToken(true);
         const res = await fetch("/api/me", {
@@ -222,7 +223,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(
-            (body as { error?: string }).error || "Profiel opslaan mislukt",
+            (body as { error?: string }).error ||
+              translate(getClientLocale(), "auth.profileSaveFailed"),
           );
         }
         setProfile((await res.json()) as AuthUser);

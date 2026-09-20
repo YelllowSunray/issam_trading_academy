@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { jsonError, withApiError } from "@/lib/api/errors";
 import { requireAuthUser, requireSelfUid, resolveTargetUid } from "@/lib/auth/request";
 import { listProgress, setLessonProgress } from "@/lib/courses/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
@@ -21,7 +22,7 @@ export async function PUT(req: Request) {
       completed?: boolean;
     };
     if (!body.courseId || !body.lessonId || typeof body.completed !== "boolean") {
-      return jsonError("courseId, lessonId en completed zijn verplicht");
+      return jsonError(await tRequest("api.progressFieldsRequired"));
     }
     const row = await setLessonProgress(
       uid,

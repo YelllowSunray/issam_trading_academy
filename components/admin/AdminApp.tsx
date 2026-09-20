@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useI18n, useT } from "@/components/i18n/LocaleProvider";
+import { dateLocale, type Vars } from "@/lib/i18n";
 import {
   addAdminCloudAccount,
   deleteAdminCourse,
@@ -50,17 +52,21 @@ type Tab =
   | "community"
   | "systeem";
 
-function rel(iso: string | null | undefined) {
+function rel(
+  iso: string | null | undefined,
+  t: (key: string, vars?: Vars) => string,
+) {
   if (!iso) return "—";
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "zojuist";
-  if (mins < 60) return `${mins} min`;
+  if (mins < 1) return t("admin.justNow");
+  if (mins < 60) return t("admin.min", { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} u`;
-  return `${Math.floor(hours / 24)} d`;
+  if (hours < 24) return t("admin.hours", { n: hours });
+  return t("admin.days", { n: Math.floor(hours / 24) });
 }
 
 export function AdminApp() {
+  const t = useT();
   const { profile, setCoachTarget } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overzicht");
@@ -97,7 +103,9 @@ export function AdminApp() {
         setBilling(b);
         if (c) setCloud(c);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : t("common.loadFailed")),
+      );
   }
 
   useEffect(() => {
@@ -160,7 +168,7 @@ export function AdminApp() {
         prev.map((m) => (m.uid === uid ? { ...m, membership } : m)),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Membership bijwerken mislukt");
+      setError(e instanceof Error ? e.message : t("admin.membershipFailed"));
     } finally {
       setBusyUid(null);
     }
@@ -169,25 +177,23 @@ export function AdminApp() {
   return (
     <div className="journal-main">
       <p className="tj-eyebrow">ADMIN</p>
-      <h1 className="tj-title">Platform-overzicht</h1>
+      <h1 className="tj-title">{t("admin.title")}</h1>
       <p className="pl-sub">
-        <strong>VIP</strong> via Stripe, <strong>1:1</strong> handmatig.
-        Coach-view opent dashboard, journal, backtest, academy, certificates
-        en Telegram van de student — alleen-lezen.
-        {profile?.email ? ` Ingelogd als ${profile.email}.` : ""}
+        {t("admin.lead")}
+        {profile?.email ? t("admin.signedIn", { email: profile.email }) : ""}
       </p>
 
       <div className="tb-tabs" style={{ marginBottom: 22 }}>
         {(
           [
-            ["overzicht", "Overzicht"],
-            ["coach", "Coach-view"],
-            ["leden", "Leden"],
-            ["cloud", "Cloud MT5"],
-            ["cursussen", "Cursussen"],
-            ["signalen", "Signalen"],
-            ["community", "Community"],
-            ["systeem", "VIP-prijzen"],
+            ["overzicht", t("admin.overview")],
+            ["coach", t("admin.coach")],
+            ["leden", t("admin.members")],
+            ["cloud", t("admin.cloud")],
+            ["cursussen", t("admin.courses")],
+            ["signalen", t("admin.signals")],
+            ["community", t("admin.community")],
+            ["systeem", t("admin.prices")],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -211,62 +217,77 @@ export function AdminApp() {
         <>
           <div className="pl-two-col" style={{ marginBottom: 16 }}>
             <div className="tj-panel">
-              <div className="ttl">1:1 coaching</div>
-              <p className="pl-sub2">
-                Coaching-klanten. Platform inbegrepen, geen Stripe.
-                Issam factureert zelf.
-              </p>
+              <div className="ttl">{t("gate.coaching")}</div>
+              <p className="pl-sub2">{t("admin.coachingLead")}</p>
               <div className="pl-value" style={{ marginTop: 10 }}>
                 {overview.members.coachingFree}
               </div>
               <div className="pl-sub2">
-                {settings?.coachingPriceNote || "Prijs buiten de app"}
+                {settings?.coachingPriceNote || t("admin.priceOutside")}
               </div>
             </div>
             <div className="tj-panel">
-              <div className="ttl">VIP · geen 1:1</div>
-              <p className="pl-sub2">
-                Stripe-pakketten (€100 / €250 / €500 / €1000). Signals, academy
-                en VIP-Telegram. Geen 1:1.
-              </p>
+              <div className="ttl">{t("admin.vipNo11")}</div>
+              <p className="pl-sub2">{t("admin.vipLead")}</p>
               <div className="pl-value" style={{ marginTop: 10 }}>
                 {overview.members.subscriber}
               </div>
               <div className="pl-sub2">
-                {settings?.subscriberPriceLabel || "VIP vanaf €100 / maand"}
+                {settings?.subscriberPriceLabel || t("admin.vipFrom")}
                 {" · "}
-                Stripe {overview.stripe.configured ? "klaar" : "wacht op Price IDs"}
+                Stripe{" "}
+                {overview.stripe.configured
+                  ? t("admin.stripeReady")
+                  : t("admin.stripeWait")}
               </div>
             </div>
           </div>
           <div className="pl-kpi-grid">
-            <Kpi label="Leden" value={overview.members.total} />
-            <Kpi label="Wacht op toegang" value={overview.members.none} />
-            <Kpi label="Verlopen" value={overview.members.expired} />
-            <Kpi label="Journal 24u" value={overview.members.journalActiveToday} />
-            <Kpi label="Online 24u" value={overview.members.seenRecently} />
+            <Kpi label={t("admin.members")} value={overview.members.total} />
             <Kpi
-              label="Cursussen"
+              label={t("admin.waitingAccess")}
+              value={overview.members.none}
+            />
+            <Kpi
+              label={t("admin.expiredKpi")}
+              value={overview.members.expired}
+            />
+            <Kpi
+              label={t("admin.journal24h")}
+              value={overview.members.journalActiveToday}
+            />
+            <Kpi
+              label={t("admin.online24h")}
+              value={overview.members.seenRecently}
+            />
+            <Kpi
+              label={t("admin.courses")}
               value={`${overview.courses.published}/${overview.courses.total}`}
             />
             <Kpi
-              label="Telegram gekoppeld"
+              label={t("admin.telegramLinked")}
               value={overview.community.telegramLinked}
             />
             <Kpi
-              label="Signals open"
+              label={t("admin.signalsOpen")}
               value={`${overview.signals.open}/${overview.signals.total}`}
             />
             <Kpi
-              label="Goals"
-              value={`${overview.goals.total} · ${overview.goals.students} leden`}
+              label={t("admin.goals")}
+              value={`${overview.goals.total} · ${t("admin.membersOf", { n: overview.goals.students })}`}
             />
             <Kpi
-              label="Backtests"
-              value={`${overview.backtests.total} · ${overview.backtests.students} leden`}
+              label={t("admin.backtests")}
+              value={`${overview.backtests.total} · ${t("admin.membersOf", { n: overview.backtests.students })}`}
             />
-            <Kpi label="Certificates" value={overview.certificates.awarded} />
-            <Kpi label="Disabled" value={overview.members.disabled} />
+            <Kpi
+              label={t("admin.certificates")}
+              value={overview.certificates.awarded}
+            />
+            <Kpi
+              label={t("admin.disabled")}
+              value={overview.members.disabled}
+            />
           </div>
         </>
       )}
@@ -278,18 +299,16 @@ export function AdminApp() {
       {tab === "leden" && (
         <section className="tj-panel">
           <p className="pl-sub2" style={{ marginBottom: 12 }}>
-            <strong>VIP</strong> = Stripe-pakket, geen 1:1.
-            <strong> 1:1</strong> = coaching-klant (jij zet dat aan). Coach-view
-            opent hun hele platform. Admins staan apart.
+            {t("admin.membersLead")}
           </p>
           <div className="plat-chip-row">
             {(
               [
-                ["all", "Alle"],
-                ["none", "Geen toegang"],
-                ["subscriber", "VIP"],
+                ["all", t("common.all")],
+                ["none", t("membership.none")],
+                ["subscriber", t("membership.subscriber")],
                 ["coaching_free", "1:1"],
-                ["expired", "Verlopen"],
+                ["expired", t("membership.expired")],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -304,7 +323,7 @@ export function AdminApp() {
           </div>
           <input
             className="tj-input"
-            placeholder="Zoek op naam of e-mail…"
+            placeholder={t("admin.search")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ marginBottom: 14, maxWidth: 360 }}
@@ -313,16 +332,16 @@ export function AdminApp() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Lid</th>
-                  <th>Toegang</th>
-                  <th>Journal</th>
-                  <th>Academy</th>
+                  <th>{t("admin.member")}</th>
+                  <th>{t("admin.access")}</th>
+                  <th>{t("nav.journal")}</th>
+                  <th>{t("nav.academy")}</th>
                   <th>TG</th>
-                  <th>Goals</th>
+                  <th>{t("admin.goals")}</th>
                   <th>BT</th>
                   <th>Certs</th>
                   <th>Seen</th>
-                  <th style={{ textAlign: "right" }}>Acties</th>
+                  <th style={{ textAlign: "right" }}>{t("admin.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -347,19 +366,19 @@ export function AdminApp() {
                     <td>
                       <AccessBadge member={m} />
                     </td>
-                    <td>{rel(m.lastJournalActivityAt)}</td>
+                    <td>{rel(m.lastJournalActivityAt, t)}</td>
                     <td>
                       {m.lessonsCompleted}/{m.lessonsTotal}
                     </td>
                     <td>
                       {m.telegramLinked
-                        ? `@${m.telegramUsername || "gekoppeld"}`
+                        ? `@${m.telegramUsername || t("admin.linked")}`
                         : "—"}
                     </td>
                     <td>{m.goalsCount || "—"}</td>
                     <td>{m.backtestsCount || "—"}</td>
                     <td>{m.certificatesCount || "—"}</td>
-                    <td>{rel(m.lastSeenAt)}</td>
+                    <td>{rel(m.lastSeenAt, t)}</td>
                     <td>
                       <div className="admin-table-actions">
                         {m.role !== "admin" &&
@@ -374,8 +393,8 @@ export function AdminApp() {
                             }
                           >
                             {m.membership === "subscriber"
-                              ? "Upgrade naar 1:1"
-                              : "Zet op 1:1"}
+                              ? t("admin.upgrade11")
+                              : t("admin.set11")}
                           </button>
                         )}
                         {m.role !== "admin" &&
@@ -386,7 +405,7 @@ export function AdminApp() {
                             disabled={busyUid === m.uid}
                             onClick={() => void changeMembership(m.uid, "none")}
                           >
-                            Stop 1:1
+                            {t("admin.stop11")}
                           </button>
                         )}
                         {m.role !== "admin" && m.membership === "subscriber" && (
@@ -398,7 +417,7 @@ export function AdminApp() {
                               void changeMembership(m.uid, "expired")
                             }
                           >
-                            Stop abonnement
+                            {t("admin.stopSub")}
                           </button>
                         )}
                         <button
@@ -418,7 +437,7 @@ export function AdminApp() {
                           style={{ fontSize: 11.5, padding: "8px 12px" }}
                           onClick={() => openCoach(m, "/dashboard")}
                         >
-                          Coach-view
+                          {t("admin.coach")}
                         </button>
                         <button
                           type="button"
@@ -434,14 +453,14 @@ export function AdminApp() {
                               window.alert(
                                 err instanceof Error
                                   ? err.message
-                                  : "AI brief mislukt",
+                                  : t("admin.aiBriefFailed"),
                               );
                             } finally {
                               setBusyUid(null);
                             }
                           }}
                         >
-                          AI brief
+                          {t("admin.aiBrief")}
                         </button>
                         <button
                           type="button"
@@ -461,7 +480,7 @@ export function AdminApp() {
                             }
                           }}
                         >
-                          {m.disabled ? "Activeren" : "Disable"}
+                          {m.disabled ? t("admin.enable") : t("admin.disable")}
                         </button>
                       </div>
                     </td>
@@ -470,7 +489,7 @@ export function AdminApp() {
               </tbody>
             </table>
             {!filtered.length && (
-              <div className="tj-empty">Geen leden in deze filter.</div>
+              <div className="tj-empty">{t("admin.noMembersFilter")}</div>
             )}
           </div>
         </section>
@@ -524,15 +543,15 @@ export function AdminApp() {
             }}
           />
           <section className="tj-panel">
-            <div className="ttl">Firebase-budget</div>
+            <div className="ttl">{t("admin.firebaseBudget")}</div>
             <p className="pl-sub2" style={{ marginBottom: 12 }}>
-              Infra-kill-switch, niet student-facturatie.
+              {t("admin.killSwitch")}
               {canManageBilling
-                ? ` Alleen ${ownerEmail} kan locken.`
-                : " Alleen de owner kan locken."}
+                ? t("admin.onlyOwnerCanLockEmail", { email: ownerEmail })
+                : t("admin.onlyOwnerCanLock")}
             </p>
             <div className="status-chip" style={{ marginBottom: 12 }}>
-              {billing?.exceeded ? "Geblokkeerd" : "Actief"} · €
+              {billing?.exceeded ? t("admin.blocked") : t("admin.active")} · €
               {billing?.usage?.estimatedCostEur.toFixed(2) ?? "0.00"} / €
               {billing?.budgetEur ?? 10}
             </div>
@@ -545,7 +564,7 @@ export function AdminApp() {
                     void setBillingExceeded(true, "manual_lock").then(setBilling)
                   }
                 >
-                  App blokkeren
+                  {t("admin.lockApp")}
                 </button>
                 <button
                   type="button"
@@ -554,7 +573,7 @@ export function AdminApp() {
                     void setBillingExceeded(false, "manual_unlock").then(setBilling)
                   }
                 >
-                  Ontgrendelen
+                  {t("admin.unlock")}
                 </button>
               </div>
             )}
@@ -566,42 +585,43 @@ export function AdminApp() {
 }
 
 function AccessBadge({ member }: { member: MemberRow }) {
+  const t = useT();
   if (member.role === "admin") {
     return (
       <div className="access-cell">
-        <span className="status-chip on">Admin</span>
-        <div className="pl-sub2">volledige toegang</div>
+        <span className="status-chip on">{t("common.admin")}</span>
+        <div className="pl-sub2">{t("admin.fullAccess")}</div>
       </div>
     );
   }
   if (member.membership === "subscriber") {
     return (
       <div className="access-cell">
-        <span className="status-chip on">VIP</span>
-        <div className="pl-sub2">Stripe · geen 1:1</div>
+        <span className="status-chip on">{t("membership.subscriber")}</span>
+        <div className="pl-sub2">{t("admin.stripeNo11")}</div>
       </div>
     );
   }
   if (member.membership === "coaching_free") {
     return (
       <div className="access-cell">
-        <span className="status-chip on">1:1 coaching</span>
-        <div className="pl-sub2">niet via Stripe</div>
+        <span className="status-chip on">{t("membership.coaching_free")}</span>
+        <div className="pl-sub2">{t("admin.notViaStripe")}</div>
       </div>
     );
   }
   if (member.membership === "expired") {
     return (
       <div className="access-cell">
-        <span className="status-chip off">Verlopen</span>
-        <div className="pl-sub2">was geabonneerd</div>
+        <span className="status-chip off">{t("membership.expired")}</span>
+        <div className="pl-sub2">{t("admin.wasSubscribed")}</div>
       </div>
     );
   }
   return (
     <div className="access-cell">
-      <span className="status-chip">Geen toegang</span>
-      <div className="pl-sub2">wacht op 1:1 of Stripe</div>
+      <span className="status-chip">{t("membership.none")}</span>
+      <div className="pl-sub2">{t("admin.wait11OrStripe")}</div>
     </div>
   );
 }
@@ -613,6 +633,7 @@ function CoachRoster({
   members: MemberRow[];
   onOpen: (m: MemberRow, href: string) => void;
 }) {
+  const { t, locale } = useI18n();
   const rows = members
     .filter((m) => m.role !== "admin")
     .slice()
@@ -620,16 +641,14 @@ function CoachRoster({
       const aT = a.lastJournalActivityAt || "";
       const bT = b.lastJournalActivityAt || "";
       if (aT !== bT) return bT.localeCompare(aT);
-      return a.displayName.localeCompare(b.displayName, "nl");
+      return a.displayName.localeCompare(b.displayName, locale);
     });
 
   return (
     <section className="tj-panel">
-      <div className="ttl">Coach-view</div>
+      <div className="ttl">{t("admin.coach")}</div>
       <p className="pl-sub2" style={{ marginBottom: 14 }}>
-        Open het platform van de student: dashboard (P/L + goals), journal,
-        backtest, signals, academy, certificates en Telegram. Alles
-        alleen-lezen.
+        {t("admin.coachLead")}
       </p>
       <div className="coach-roster">
         {rows.map((m) => (
@@ -641,23 +660,23 @@ function CoachRoster({
                 <AccessBadge member={m} />
               </div>
               <div className="pl-sub2" style={{ marginTop: 8 }}>
-                Journal {rel(m.lastJournalActivityAt)} · academy{" "}
+                {t("nav.journal")} {rel(m.lastJournalActivityAt, t)} · {t("nav.academy")}{" "}
                 {m.lessonsCompleted}/{m.lessonsTotal} · TG{" "}
                 {m.telegramLinked ? `@${m.telegramUsername || "ok"}` : "—"} ·{" "}
-                {m.goalsCount} goals · {m.backtestsCount} backtests ·{" "}
-                {m.certificatesCount} certs
+                {m.goalsCount} {t("admin.goals").toLowerCase()} · {m.backtestsCount}{" "}
+                {t("admin.backtests").toLowerCase()} · {m.certificatesCount} certs
               </div>
             </div>
             <div className="coach-banner-nav">
               {(
                 [
-                  ["/dashboard", "Dashboard"],
-                  ["/journal", "Journal"],
-                  ["/journal#backtest", "Backtest"],
-                  ["/signals", "Signals"],
-                  ["/learn", "Academy"],
-                  ["/learn/certificates", "Certs"],
-                  ["/community", "Telegram"],
+                  ["/dashboard", t("nav.dashboard")],
+                  ["/journal", t("nav.journal")],
+                  ["/journal#backtest", t("coach.backtest")],
+                  ["/signals", t("nav.signals")],
+                  ["/learn", t("nav.academy")],
+                  ["/learn/certificates", t("coach.certificates")],
+                  ["/community", t("nav.community")],
                 ] as const
               ).map(([href, label]) => (
                 <button
@@ -673,7 +692,7 @@ function CoachRoster({
           </article>
         ))}
       </div>
-      {!rows.length && <div className="tj-empty">Nog geen leden.</div>}
+      {!rows.length && <div className="tj-empty">{t("admin.noMembers")}</div>}
     </section>
   );
 }
@@ -696,6 +715,7 @@ function PricingTab({
   stripeReady: boolean;
   onSave: (patch: Partial<PlatformSettings>) => Promise<void>;
 }) {
+  const t = useT();
   const [subscriberPriceLabel, setSubscriberPriceLabel] = useState(
     settings.subscriberPriceLabel,
   );
@@ -706,11 +726,10 @@ function PricingTab({
 
   return (
     <section className="tj-panel">
-      <div className="ttl">VIP-pakketten + 1:1</div>
+      <div className="ttl">{t("admin.vipPlus11")}</div>
       <p className="pl-sub2" style={{ marginBottom: 16 }}>
-        Weergave-teksten. Stripe-leden kiezen een van de vier pakketten.
-        1:1 factureert Issam zelf. Price IDs:{" "}
-        <code>STRIPE_PRICE_MONTHLY</code> (of <code>STRIPE_PRICE_ID</code>),{" "}
+        {t("admin.pricingLead")}{" "}
+        <code>STRIPE_PRICE_MONTHLY</code> ({t("common.or")} <code>STRIPE_PRICE_ID</code>),{" "}
         <code>STRIPE_PRICE_QUARTERLY</code>,{" "}
         <code>STRIPE_PRICE_SEMIANNUAL</code>, <code>STRIPE_PRICE_YEARLY</code>.
       </p>
@@ -718,13 +737,13 @@ function PricingTab({
         {VIP_PLANS.map((p) => (
           <Kpi
             key={p.id}
-            label={p.label}
-            value={`${p.priceLabel}${p.cadence}`}
+            label={t(`vip.${p.id}Label`)}
+            value={`${p.priceLabel}${t(`vip.${p.id}Cadence`)}`}
           />
         ))}
       </div>
       <div className="tj-field">
-        <div className="lbl">1:1 coaching (buiten Stripe)</div>
+        <div className="lbl">{t("admin.coachingOutside")}</div>
         <textarea
           className="tj-input"
           rows={2}
@@ -732,22 +751,20 @@ function PricingTab({
           onChange={(e) => setCoachingPriceNote(e.target.value)}
         />
         <div className="hint" style={{ marginTop: 6 }}>
-          Bijv. “€800 / maand, factuur via Issam. Platform is inbegrepen.”
+          {t("admin.coachingPlaceholder")}
         </div>
       </div>
       <div className="tj-field">
-        <div className="lbl">Platform-abonnement (Stripe)</div>
+        <div className="lbl">{t("admin.platformSub")}</div>
         <input
           className="tj-input"
           value={subscriberPriceLabel}
           onChange={(e) => setSubscriberPriceLabel(e.target.value)}
-          placeholder="VIP vanaf €100 / maand"
+          placeholder={t("admin.vipFrom")}
         />
         <div className="hint" style={{ marginTop: 6 }}>
-          Extra regel op de paywall naast de vier pakketten. Stripe:{" "}
-          {stripeReady
-            ? "minstens één Price ID staat in env — checkout kan."
-            : "nog geen STRIPE_PRICE_* IDs. Maak vier recurring prices en plak ze in env."}
+          {t("admin.paywallHint")}{" "}
+          {stripeReady ? t("admin.stripeCanCheckout") : t("admin.stripeNeedIds")}
         </div>
       </div>
       {info && <div className="pl-empty">{info}</div>}
@@ -756,14 +773,14 @@ function PricingTab({
         className="tb-addbtn"
         onClick={async () => {
           await onSave({ subscriberPriceLabel, coachingPriceNote });
-          setInfo("Prijsteksten opgeslagen.");
+          setInfo(t("admin.pricesSaved"));
         }}
       >
-        Opslaan
+        {t("common.save")}
       </button>
       <p className="pl-sub2" style={{ marginTop: 16 }}>
         Webhook: <code>/api/stripe/webhook</code> · env:{" "}
-        <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_PRICE_MONTHLY</code> (of{" "}
+        <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_PRICE_MONTHLY</code> ({t("common.or")}{" "}
         <code>STRIPE_PRICE_ID</code>), <code>STRIPE_PRICE_QUARTERLY</code>,{" "}
         <code>STRIPE_PRICE_SEMIANNUAL</code>, <code>STRIPE_PRICE_YEARLY</code>,{" "}
         <code>STRIPE_WEBHOOK_SECRET</code>
@@ -779,6 +796,7 @@ function CommunityTab({
   settings: PlatformSettings;
   onSave: (patch: Partial<PlatformSettings>) => Promise<void>;
 }) {
+  const t = useT();
   const [url, setUrl] = useState(settings.telegramInviteUrl);
   const [label, setLabel] = useState(settings.telegramLabel);
   const [note, setNote] = useState(settings.communityNote);
@@ -788,19 +806,16 @@ function CommunityTab({
 
   return (
     <section className="tj-panel">
-      <div className="ttl">Telegram-groepen</div>
+      <div className="ttl">{t("admin.telegramGroups")}</div>
       <p className="pl-sub2" style={{ marginBottom: 14 }}>
-        Bot moet admin zijn in beide groepen. Env:{" "}
-        <code>TELEGRAM_BOT_TOKEN</code>,{" "}
-        <code>NEXT_PUBLIC_TELEGRAM_BOT_USERNAME</code>. Kick bij expiry is geen
-        MVP. Fallback-URL alleen als de bot geen link kan maken.
+        {t("admin.telegramLead")}
       </p>
       <div className="tj-field">
-        <div className="lbl">Label</div>
+        <div className="lbl">{t("admin.label")}</div>
         <input className="tj-input" value={label} onChange={(e) => setLabel(e.target.value)} />
       </div>
       <div className="tj-field">
-        <div className="lbl">VIP chat ID</div>
+        <div className="lbl">{t("admin.vipChatId")}</div>
         <input
           className="tj-input"
           value={vipChat}
@@ -809,7 +824,7 @@ function CommunityTab({
         />
       </div>
       <div className="tj-field">
-        <div className="lbl">Normale chat ID</div>
+        <div className="lbl">{t("admin.normalChatId")}</div>
         <input
           className="tj-input"
           value={normalChat}
@@ -818,7 +833,7 @@ function CommunityTab({
         />
       </div>
       <div className="tj-field">
-        <div className="lbl">Fallback invite URL</div>
+        <div className="lbl">{t("admin.fallbackInvite")}</div>
         <input
           className="tj-input"
           value={url}
@@ -827,7 +842,7 @@ function CommunityTab({
         />
       </div>
       <div className="tj-field">
-        <div className="lbl">Tekst voor leden</div>
+        <div className="lbl">{t("admin.memberCopy")}</div>
         <textarea className="tj-input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
       {info && <div className="pl-empty">{info}</div>}
@@ -842,16 +857,17 @@ function CommunityTab({
             telegramVipChatId: vipChat,
             telegramNormalChatId: normalChat,
           });
-          setInfo("Opgeslagen.");
+          setInfo(t("common.saved"));
         }}
       >
-        Opslaan
+        {t("common.save")}
       </button>
     </section>
   );
 }
 
 function SignalsTab() {
+  const t = useT();
   const [rows, setRows] = useState<TradeSignal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -870,24 +886,25 @@ function SignalsTab() {
   function load() {
     fetchSignals()
       .then((d) => setRows(d.signals))
-      .catch((e) => setError(e instanceof Error ? e.message : "Laden mislukt"));
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : t("common.loadFailed")),
+      );
   }
 
   useEffect(() => {
     load();
-  }, []);
+  }, [t]);
 
   return (
     <section className="tj-panel">
-      <div className="ttl">Signals</div>
+      <div className="ttl">{t("admin.signals")}</div>
       <p className="pl-sub2" style={{ marginBottom: 14 }}>
-        Geen copy-trading, geen MT5-executie. Elk signaal toont een verplichte
-        disclaimer.
+        {t("admin.signalsLead")}
       </p>
       {error && <div className="pl-empty">{error}</div>}
       <div className="tj-grid3">
         <div className="tj-field">
-          <div className="lbl">Instrument</div>
+          <div className="lbl">{t("journal.instrument")}</div>
           <input
             className="tj-input"
             value={form.instrument}
@@ -895,7 +912,7 @@ function SignalsTab() {
           />
         </div>
         <div className="tj-field">
-          <div className="lbl">Richting</div>
+          <div className="lbl">{t("journal.direction")}</div>
           <select
             className="tj-input"
             value={form.direction}
@@ -908,7 +925,7 @@ function SignalsTab() {
           </select>
         </div>
         <div className="tj-field">
-          <div className="lbl">Status</div>
+          <div className="lbl">{t("admin.status")}</div>
           <select
             className="tj-input"
             value={form.status}
@@ -926,7 +943,7 @@ function SignalsTab() {
       </div>
       <div className="tj-grid3">
         <div className="tj-field">
-          <div className="lbl">Entry</div>
+          <div className="lbl">{t("journal.entry")}</div>
           <input
             className="tj-input"
             value={form.entry}
@@ -997,13 +1014,13 @@ function SignalsTab() {
             }));
             load();
           } catch (e) {
-            setError(e instanceof Error ? e.message : "Opslaan mislukt");
+            setError(e instanceof Error ? e.message : t("common.failed"));
           } finally {
             setBusy(false);
           }
         }}
       >
-        {form.id ? "Signaal bijwerken" : "Signaal plaatsen"}
+        {form.id ? t("admin.updateSignal") : t("admin.postSignal")}
       </button>
       <div style={{ marginTop: 16 }}>
         {rows.map((s) => (
@@ -1035,7 +1052,7 @@ function SignalsTab() {
                   })
                 }
               >
-                Bewerk
+                {t("admin.edit")}
               </button>
               <button
                 type="button"
@@ -1045,7 +1062,7 @@ function SignalsTab() {
                   load();
                 }}
               >
-                Weg
+                {t("common.remove")}
               </button>
             </div>
           </div>
@@ -1070,6 +1087,7 @@ function CloudTab({
   onReload: () => Promise<void>;
   onError: (msg: string | null) => void;
 }) {
+  const { t, locale } = useI18n();
   const [mode, setMode] = useState<"register" | "map">("register");
   const [email, setEmail] = useState(prefillEmail);
   const [login, setLogin] = useState("");
@@ -1094,7 +1112,7 @@ function CloudTab({
       setInfo(await task());
       await onReload();
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Cloud-actie mislukt");
+      onError(e instanceof Error ? e.message : t("admin.cloudActionFailed"));
     } finally {
       setBusy(false);
     }
@@ -1103,15 +1121,13 @@ function CloudTab({
   return (
     <>
       <section className="tj-panel" style={{ marginBottom: 16 }}>
-        <div className="ttl">API2Trade cloud-sync</div>
+        <div className="ttl">{t("admin.cloudTitle")}</div>
         <p className="pl-sub2" style={{ marginBottom: 12 }}>
-          API2Trade is één academy-account (vendor-login). Trades gaan naar
-          het academy-profiel van de student, niet naar het API2Trade-e-mailadres.
-          Issam staat al gekoppeld. Extra studenten vereisen extra API2Trade-seats.
+          {t("admin.cloudLead")} {t("admin.issamLinked")}
         </p>
         {!cloud?.configured && (
           <div className="pl-empty" style={{ marginBottom: 12 }}>
-            API2TRADE_API_KEY ontbreekt in de server-env.
+            {t("admin.apiKeyMissing")}
           </div>
         )}
         {cloud?.vendorError && (
@@ -1120,13 +1136,13 @@ function CloudTab({
           </div>
         )}
         <div className="pl-sub2" style={{ marginBottom: 12 }}>
-          Vendor-login (API2Trade):{" "}
+          {t("admin.vendorLogin")}{" "}
           {cloud?.seed.vendorOwnerEmail || "cryptozayn@gmail.com"}
           <br />
-          Eerste journal-eigenaar: {cloud?.seed.email || "ia.lieveldd@gmail.com"}{" "}
+          {t("admin.firstOwner")} {cloud?.seed.email || "ia.lieveldd@gmail.com"}{" "}
           / login {cloud?.seed.login}
           <br />
-          Vendor-accounts: {cloud?.vendor.length ?? 0}
+          {t("admin.vendorAccounts", { n: cloud?.vendor.length ?? 0 })}
         </div>
         <button
           type="button"
@@ -1136,34 +1152,34 @@ function CloudTab({
             void run(async () => {
               const res = await syncAdminCloudAccounts();
               const ok = res.results.filter((r) => r.ok).length;
-              return `Sync klaar: ${ok}/${res.results.length} ok.`;
+              return t("admin.syncDone", { ok, total: res.results.length });
             })
           }
         >
-          {busy ? "Bezig…" : "Sync alle accounts"}
+          {busy ? t("common.busy") : t("admin.syncAll")}
         </button>
       </section>
 
       <section className="tj-panel" style={{ marginBottom: 16 }}>
-        <div className="ttl">Student koppelen</div>
+        <div className="ttl">{t("admin.linkStudent")}</div>
         <div className="plat-chip-row" style={{ marginBottom: 12 }}>
           <button
             type="button"
             className={`plat-chip${mode === "register" ? " active" : ""}`}
             onClick={() => setMode("register")}
           >
-            Nieuw via API
+            {t("admin.newViaApi")}
           </button>
           <button
             type="button"
             className={`plat-chip${mode === "map" ? " active" : ""}`}
             onClick={() => setMode("map")}
           >
-            Bestaande UUID
+            {t("admin.existingUuid")}
           </button>
         </div>
         <div className="tj-field">
-          <div className="lbl">Student</div>
+          <div className="lbl">{t("common.student")}</div>
           <input
             className="tj-input"
             list="cloud-member-emails"
@@ -1180,7 +1196,7 @@ function CloudTab({
           </datalist>
         </div>
         <div className="tj-field">
-          <div className="lbl">MT5-login</div>
+          <div className="lbl">{t("admin.mt5Login")}</div>
           <input
             className="tj-input"
             value={login}
@@ -1191,27 +1207,27 @@ function CloudTab({
         {mode === "register" ? (
           <>
             <div className="tj-field">
-              <div className="lbl">Broker-server</div>
+              <div className="lbl">{t("admin.brokerServer")}</div>
               <input
                 className="tj-input"
                 value={server}
                 onChange={(e) => setServer(e.target.value)}
-                placeholder="exacte servernaam, bijv. ICMarketsSC-MT5"
+                placeholder={t("admin.serverPlaceholder")}
               />
             </div>
             <div className="tj-field">
-              <div className="lbl">Wachtwoord</div>
+              <div className="lbl">{t("common.password")}</div>
               <input
                 className="tj-input"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="investor als de broker het toelaat"
+                placeholder={t("admin.investorHint")}
                 autoComplete="new-password"
               />
             </div>
             <div className="tj-field">
-              <div className="lbl">Naam (optioneel)</div>
+              <div className="lbl">{t("admin.nameOptional")}</div>
               <input
                 className="tj-input"
                 value={name}
@@ -1253,27 +1269,30 @@ function CloudTab({
               });
               setPassword("");
               if (!res.result.ok) {
-                throw new Error(res.result.error || "Koppelen mislukt");
+                throw new Error(res.result.error || t("admin.linkFailed"));
               }
-              return `Gekoppeld · ${res.result.login} · ${res.result.written} trades.`;
+              return t("admin.linkedResult", {
+                login: res.result.login,
+                n: res.result.written,
+              });
             })
           }
         >
-          {mode === "register" ? "Account aanmaken + sync" : "UUID koppelen + sync"}
+          {mode === "register" ? t("admin.createSync") : t("admin.linkSync")}
         </button>
       </section>
 
       <section className="tj-panel">
-        <div className="ttl">Gekoppelde accounts</div>
+        <div className="ttl">{t("admin.linkedAccounts")}</div>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Lid</th>
+                <th>{t("admin.member")}</th>
                 <th>MT5</th>
-                <th>Status</th>
+                <th>{t("admin.status")}</th>
                 <th>Sync</th>
-                <th style={{ textAlign: "right" }}>Acties</th>
+                <th style={{ textAlign: "right" }}>{t("admin.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1294,7 +1313,7 @@ function CloudTab({
                       className={`status-chip${a.status === "active" && a.vendorConnected ? " on" : ""}${a.status === "error" ? " off" : ""}`}
                     >
                       {a.status}
-                      {a.vendorConnected ? "" : " · niet bij vendor"}
+                      {a.vendorConnected ? "" : t("admin.notAtVendor")}
                     </span>
                     {a.lastError ? (
                       <div className="pl-sub2">{a.lastError}</div>
@@ -1302,9 +1321,11 @@ function CloudTab({
                   </td>
                   <td>
                     {a.lastSyncAt
-                      ? new Date(a.lastSyncAt).toLocaleString("nl-NL")
+                      ? new Date(a.lastSyncAt).toLocaleString(dateLocale(locale))
                       : "—"}
-                    <div className="pl-sub2">{a.lastTradeCount} trades</div>
+                    <div className="pl-sub2">
+                      {a.lastTradeCount} {t("common.trades")}
+                    </div>
                   </td>
                   <td>
                     <div className="admin-table-actions">
@@ -1317,8 +1338,11 @@ function CloudTab({
                           void run(async () => {
                             const res = await syncAdminCloudAccounts(a.accountId);
                             const one = res.results[0];
-                            if (!one?.ok) throw new Error(one?.error || "Sync mislukt");
-                            return `Sync ${one.login}: ${one.written} trades.`;
+                            if (!one?.ok) throw new Error(one?.error || t("admin.syncFailed"));
+                            return t("admin.syncOne", {
+                              login: one.login,
+                              n: one.written,
+                            });
                           })
                         }
                       >
@@ -1330,14 +1354,14 @@ function CloudTab({
                           className="pl-reset-btn"
                           disabled={busy}
                           onClick={() => {
-                            if (!window.confirm(`Ontkoppel ${a.email}?`)) return;
+                            if (!window.confirm(t("admin.unlinkConfirm", { email: a.email }))) return;
                             void run(async () => {
                               await unlinkAdminCloudAccount(a.accountId, false);
-                              return "Ontkoppeld in de app. Account blijft bij API2Trade.";
+                              return t("admin.unlinked");
                             });
                           }}
                         >
-                          Ontkoppel
+                          {t("admin.unlink")}
                         </button>
                       )}
                     </div>
@@ -1347,7 +1371,7 @@ function CloudTab({
             </tbody>
           </table>
           {!cloud?.accounts.length && (
-            <div className="tj-empty">Nog geen cloud-accounts.</div>
+            <div className="tj-empty">{t("admin.noCloud")}</div>
           )}
         </div>
       </section>
@@ -1366,6 +1390,7 @@ function CoursesTab({
   setEditing: (c: Course | null) => void;
   onChange: () => Promise<void>;
 }) {
+  const t = useT();
   const [title, setTitle] = useState("");
 
   async function create(e: FormEvent) {
@@ -1379,19 +1404,19 @@ function CoursesTab({
   return (
     <>
       <section className="tj-panel">
-        <div className="ttl">Cursussen</div>
+        <div className="ttl">{t("admin.courses")}</div>
         <p className="pl-sub2" style={{ marginBottom: 12 }}>
-          Per les: YouTube/Vimeo, geüploade video (MP4/WebM) en PDF’s.
+          {t("admin.coursesLead")}
         </p>
         <form onSubmit={(e) => void create(e)} className="plat-inline-form">
           <input
             className="tj-input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Nieuwe cursustitel"
+            placeholder={t("admin.newCourseTitle")}
           />
           <button className="tb-addbtn" type="submit">
-            Aanmaken
+            {t("admin.create")}
           </button>
           <button
             type="button"
@@ -1401,16 +1426,16 @@ function CoursesTab({
               await onChange();
             }}
           >
-            Voorbeeldcursus
+            {t("admin.sampleCourse")}
           </button>
         </form>
         <div className="admin-table-wrap" style={{ marginTop: 14 }}>
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Titel</th>
-                <th>Status</th>
-                <th>Lessen</th>
+                <th>{t("admin.courseTitle")}</th>
+                <th>{t("admin.status")}</th>
+                <th>{t("common.lessons")}</th>
                 <th />
               </tr>
             </thead>
@@ -1420,7 +1445,7 @@ function CoursesTab({
                   <td>{c.title}</td>
                   <td>
                     <span className={`status-chip ${c.published ? "on" : ""}`}>
-                      {c.published ? "Live" : "Concept"}
+                      {c.published ? t("admin.live") : t("admin.draft")}
                     </span>
                   </td>
                   <td>
@@ -1429,18 +1454,18 @@ function CoursesTab({
                   <td>
                     <div className="admin-table-actions">
                       <button type="button" className="tb-addbtn" style={{ fontSize: 11.5, padding: "8px 12px" }} onClick={() => setEditing(c)}>
-                        Bewerk
+                        {t("admin.edit")}
                       </button>
                       <button
                         type="button"
                         className="pl-reset-btn"
                         onClick={async () => {
-                          if (!window.confirm("Cursus verwijderen?")) return;
+                          if (!window.confirm(t("admin.deleteCourseConfirm"))) return;
                           await deleteAdminCourse(c.id);
                           await onChange();
                         }}
                       >
-                        Verwijder
+                        {t("common.delete")}
                       </button>
                     </div>
                   </td>
@@ -1473,6 +1498,7 @@ function CourseEditor({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState<Course>(course);
   const [busy, setBusy] = useState(false);
   const [uploadKey, setUploadKey] = useState<string | null>(null);
@@ -1513,7 +1539,7 @@ function CourseEditor({
         });
       }
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload mislukt");
+      setUploadError(err instanceof Error ? err.message : t("admin.uploadFailed"));
     } finally {
       setUploadKey(null);
     }
@@ -1526,7 +1552,7 @@ function CourseEditor({
         ...c.chapters,
         {
           id: crypto.randomUUID(),
-          title: "Nieuw hoofdstuk",
+          title: t("admin.newChapter"),
           order: c.chapters.length + 1,
           lessons: [],
         },
@@ -1545,7 +1571,7 @@ function CourseEditor({
                 ...ch.lessons,
                 {
                   id: crypto.randomUUID(),
-                  title: "Nieuwe les",
+                  title: t("admin.newLesson"),
                   videoUrl: "",
                   videoFile: null,
                   pdfs: [],
@@ -1561,9 +1587,9 @@ function CourseEditor({
 
   return (
     <section className="tj-panel">
-      <div className="ttl">Bewerk cursus</div>
+      <div className="ttl">{t("admin.editCourse")}</div>
       <div className="tj-field">
-        <div className="lbl">Titel</div>
+        <div className="lbl">{t("admin.courseTitle")}</div>
         <input
           className="tj-input"
           value={draft.title}
@@ -1571,7 +1597,7 @@ function CourseEditor({
         />
       </div>
       <div className="tj-field">
-        <div className="lbl">Beschrijving</div>
+        <div className="lbl">{t("admin.description")}</div>
         <textarea
           className="tj-input"
           rows={3}
@@ -1585,7 +1611,7 @@ function CourseEditor({
           checked={draft.published}
           onChange={(e) => setDraft({ ...draft, published: e.target.checked })}
         />
-        Gepubliceerd
+        {t("admin.published")}
       </label>
       {draft.chapters.map((ch, i) => (
         <div key={ch.id} className="learn-chapter" style={{ marginTop: 16 }}>
@@ -1608,15 +1634,15 @@ function CourseEditor({
               <input
                 className="tj-input"
                 style={{ marginTop: 6 }}
-                placeholder="Vimeo / YouTube URL (optioneel)"
+                placeholder={t("admin.videoUrlPlaceholder")}
                 value={l.videoUrl}
                 onChange={(e) => patchLesson(i, j, { videoUrl: e.target.value })}
               />
               <div className="course-asset-row">
                 <label className="pl-reset-btn">
                   {uploadKey?.startsWith(`${l.id}:video:`)
-                    ? "Video laden…"
-                    : "Upload video (MP4/WebM)"}
+                    ? t("admin.videoLoading")
+                    : t("admin.uploadVideo")}
                   <input
                     type="file"
                     accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
@@ -1638,16 +1664,16 @@ function CourseEditor({
                       style={{ marginLeft: 8 }}
                       onClick={() => patchLesson(i, j, { videoFile: null })}
                     >
-                      Weg
+                      {t("common.remove")}
                     </button>
                   </span>
                 ) : (
-                  <span className="pl-sub2">of plak hierboven een YouTube/Vimeo-link</span>
+                  <span className="pl-sub2">{t("admin.orPaste")}</span>
                 )}
               </div>
               <div className="course-asset-row">
                 <label className="pl-reset-btn">
-                  Upload PDF
+                  {t("admin.uploadPdf")}
                   <input
                     type="file"
                     accept="application/pdf,.pdf"
@@ -1678,7 +1704,7 @@ function CourseEditor({
                       })
                     }
                   >
-                    Weg
+                    {t("common.remove")}
                   </button>
                 </div>
               ))}
@@ -1686,22 +1712,22 @@ function CourseEditor({
                 className="tj-input"
                 style={{ marginTop: 6 }}
                 rows={2}
-                placeholder="Samenvatting"
+                placeholder={t("admin.summary")}
                 value={l.body}
                 onChange={(e) => patchLesson(i, j, { body: e.target.value })}
               />
             </div>
           ))}
           <button type="button" className="pl-reset-btn" onClick={() => addLesson(ch.id)}>
-            + Les
+            {t("admin.addLesson")}
           </button>
         </div>
       ))}
       {uploadError && <div className="pl-empty">{uploadError}</div>}
-      {uploadKey && <p className="pl-sub2">Bestand uploaden… even wachten.</p>}
+      {uploadKey && <p className="pl-sub2">{t("admin.uploading")}</p>}
       <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
         <button type="button" className="pl-reset-btn" onClick={addChapter}>
-          + Hoofdstuk
+          {t("admin.addChapter")}
         </button>
         <button
           type="button"
@@ -1717,10 +1743,10 @@ function CourseEditor({
             }
           }}
         >
-          Opslaan
+          {t("common.save")}
         </button>
         <button type="button" className="pl-reset-btn" onClick={onClose}>
-          Sluiten
+          {t("admin.close")}
         </button>
       </div>
     </section>

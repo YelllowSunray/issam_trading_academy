@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { IconX } from "./icons";
 
 export function Lightbox({
@@ -14,6 +15,7 @@ export function Lightbox({
   onClose: () => void;
   onIndex: (index: number) => void;
 }) {
+  const t = useT();
   const total = urls.length;
   const current = total ? Math.min(Math.max(index, 0), total - 1) : 0;
   const src = urls[current];
@@ -43,7 +45,7 @@ export function Lightbox({
           className="tj-lightbox-nav prev"
           type="button"
           onClick={() => onIndex((current - 1 + total) % total)}
-          aria-label="Vorige foto"
+          aria-label={t("journal.prevPhoto")}
         >
           ‹
         </button>
@@ -55,7 +57,7 @@ export function Lightbox({
           className="tj-lightbox-nav next"
           type="button"
           onClick={() => onIndex((current + 1) % total)}
-          aria-label="Volgende foto"
+          aria-label={t("journal.nextPhoto")}
         >
           ›
         </button>

@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 import { trackUsage } from "@/lib/billing/meter";
 import { adminDb } from "@/lib/firebase/admin";
 import { findUserByEmail, getUserProfile } from "@/lib/users/store";
@@ -51,11 +52,11 @@ export async function ensureSeedAccount(actorUid?: string | null) {
       email: SEED_EMAIL,
       login: SEED_LOGIN,
       server: null,
-      name: "Issam · eerste account",
+      name: "Issam · first account",
       platform: "Metatrader 5",
       status: user ? "pending" : "pending",
       lastSyncAt: null,
-      lastError: user ? null : "Issam moet eerst inloggen zodat we zijn uid kennen",
+      lastError: user ? null : "Issam must sign in first so we know his uid",
       lastTradeCount: 0,
       createdAt: now,
       createdBy: actorUid || null,
@@ -130,17 +131,11 @@ export async function deleteCloudAccount(accountId: string) {
 export async function resolveMember(email: string) {
   const normalized = email.trim().toLowerCase();
   if (normalized && normalized === VENDOR_OWNER_EMAIL && normalized !== SEED_EMAIL) {
-    throw new ApiError(
-      "Dat is het API2Trade-loginsadres, niet een academy-gebruiker. Kies ia.lieveldd@gmail.com of het e-mailadres van de student in deze app.",
-      400,
-    );
+    throw new ApiError(await tRequest("api.vendorEmailNotMember"), 400);
   }
   const profile = await findUserByEmail(normalized);
   if (!profile) {
-    throw new ApiError(
-      "Geen gebruiker met dit e-mailadres. De student moet eerst inloggen.",
-      404,
-    );
+    throw new ApiError(await tRequest("api.userMustLogin"), 404);
   }
   return profile;
 }

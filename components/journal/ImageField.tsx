@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { resizeImage } from "@/lib/journal/image";
 import { TJ_MAX_TRADE_IMAGES } from "@/lib/journal/types";
 import { IconImage, IconX } from "./icons";
@@ -14,6 +15,7 @@ export function ImageField({
   onChange: (images: string[]) => void;
   max?: number;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const remaining = Math.max(0, max - images.length);
 
@@ -41,13 +43,13 @@ export function ImageField({
           <IconImage />
           <span>
             {busy
-              ? "Verwerken…"
+              ? t("journal.processing")
               : images.length
-                ? "Nog een screenshot toevoegen"
-                : "Klik om screenshots te kiezen"}
+                ? t("journal.addScreenshot")
+                : t("journal.pickScreenshots")}
           </span>
           <span className="tj-imgdrop-hint">
-            Max. {max} foto’s · meerdere tegelijk mogelijk
+            {t("journal.screenshotHint", { max })}
           </span>
           <input
             type="file"
@@ -66,7 +68,7 @@ export function ImageField({
                 }
                 onChange([...images, ...added]);
               } catch (err) {
-                console.error("Afbeelding verwerken mislukt", err);
+                console.error("Couldn't process image", err);
               } finally {
                 setBusy(false);
               }

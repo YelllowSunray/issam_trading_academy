@@ -6,17 +6,18 @@ import {
   verifyTelegramLogin,
   type TelegramWidgetUser,
 } from "@/lib/telegram/bot";
+import { tRequest } from "@/lib/i18n/server";
 import { setTelegramIdentity } from "@/lib/users/store";
 
 export async function POST(req: Request) {
   return withApiError(async () => {
     const user = await requireAuthUser(req, { allowWithoutMembership: true });
     if (!telegramConfigured()) {
-      return jsonError("Telegram-bot is nog niet geconfigureerd.", 503);
+      return jsonError(await tRequest("api.telegramMissing"), 503);
     }
     const body = (await req.json()) as TelegramWidgetUser;
     if (!verifyTelegramLogin(body)) {
-      return jsonError("Ongeldige Telegram-login.", 400);
+      return jsonError(await tRequest("api.invalidTelegramLogin"), 400);
     }
     await setTelegramIdentity(user.uid, {
       telegramId: String(body.id),

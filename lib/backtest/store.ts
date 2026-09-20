@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { ApiError } from "@/lib/api/errors";
+import { tRequest } from "@/lib/i18n/server";
 import { trackUsage } from "@/lib/billing/meter";
 import type { TradeDirection } from "@/lib/journal/types";
 import { userRef } from "@/lib/users/store";
@@ -57,7 +58,7 @@ export async function createBacktest(
   const instrument = (input.instrument || "").trim();
   const thesis = (input.thesis || "").trim();
   if (!instrument || !thesis) {
-    throw new ApiError("Instrument en hypothese zijn verplicht", 400);
+    throw new ApiError(await tRequest("api.instrumentHypothesisRequired"), 400);
   }
   const rec: BacktestEntry = {
     id: randomUUID(),

@@ -33,21 +33,21 @@ export function assertCourseAsset(input: {
 }) {
   const name = input.filename.trim();
   const type = (input.contentType || "").toLowerCase();
-  if (!name) throw new ApiError("Bestandsnaam ontbreekt", 400);
+  if (!name) throw new ApiError("Filename is missing", 400);
   if (input.kind === "pdf") {
     const ok = PDF_TYPES.has(type) || name.toLowerCase().endsWith(".pdf");
-    if (!ok) throw new ApiError("Alleen PDF is toegestaan", 400);
+    if (!ok) throw new ApiError("PDF only", 400);
     if (input.size > COURSE_PDF_MAX) {
-      throw new ApiError("PDF mag max. 25 MB zijn", 400);
+      throw new ApiError("PDF must be 25 MB or smaller", 400);
     }
     return { contentType: type || "application/pdf", name };
   }
   const ok =
     VIDEO_TYPES.has(type) ||
     /\.(mp4|webm|mov)$/i.test(name);
-  if (!ok) throw new ApiError("Alleen MP4, WebM of MOV", 400);
+  if (!ok) throw new ApiError("MP4, WebM or MOV only", 400);
   if (input.size > COURSE_VIDEO_MAX) {
-    throw new ApiError("Video mag max. 250 MB zijn", 400);
+    throw new ApiError("Video must be 250 MB or smaller", 400);
   }
   return { contentType: type || "video/mp4", name };
 }
@@ -63,7 +63,7 @@ async function ensureCors() {
       },
     ]);
   } catch (err) {
-    console.warn("[course-assets] CORS niet gezet", err);
+    console.warn("[course-assets] CORS not set", err);
   }
 }
 

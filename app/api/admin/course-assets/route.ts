@@ -7,6 +7,7 @@ import {
   saveCourseAssetBuffer,
   type CourseAssetKind,
 } from "@/lib/courses/assets";
+import { tRequest } from "@/lib/i18n/server";
 
 export const maxDuration = 60;
 
@@ -23,13 +24,11 @@ export async function POST(req: Request) {
       const kind = asKind(form.get("kind"));
       const file = form.get("file");
       if (!kind || !(file instanceof File)) {
-        return jsonError("kind en file zijn verplicht");
+        return jsonError(await tRequest("api.kindAndFileRequired"));
       }
       const buffer = Buffer.from(await file.arrayBuffer());
       if (kind === "video" && buffer.length > COURSE_PDF_MAX) {
-        return jsonError(
-          "Grote video’s via directe upload. Kies het bestand opnieuw.",
-        );
+        return jsonError(await tRequest("api.retryLargeUpload"));
       }
       const asset = await saveCourseAssetBuffer({
         kind,
@@ -47,7 +46,7 @@ export async function POST(req: Request) {
       size?: number;
     };
     const kind = asKind(body.kind);
-    if (!kind) return jsonError("kind moet pdf of video zijn");
+    if (!kind) return jsonError(await tRequest("api.kindMustBePdfOrVideo"));
     const prepared = await createCourseAssetUpload({
       kind,
       filename: body.filename || "",

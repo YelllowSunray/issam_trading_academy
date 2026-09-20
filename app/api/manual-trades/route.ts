@@ -3,6 +3,7 @@ import { jsonError, withApiError } from "@/lib/api/errors";
 import { requireAuthUser, resolveTargetUid } from "@/lib/auth/request";
 import { createManualTrade, listManualTrades } from "@/lib/journal/store";
 import type { ManualTrade } from "@/lib/journal/types";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function GET(req: Request) {
   return withApiError(async () => {
@@ -19,10 +20,10 @@ export async function POST(req: Request) {
     // writes always to self (coach view is read-only)
     const body = (await req.json()) as Omit<ManualTrade, "id" | "createdAt">;
     if (!body?.date || !body?.instrument || !body?.direction) {
-      return jsonError("ongeldige trade");
+      return jsonError(await tRequest("api.invalidTrade"));
     }
     if (body.entry == null || body.sl == null || body.exit == null) {
-      return jsonError("entry, sl en exit zijn verplicht");
+      return jsonError(await tRequest("api.entrySlExitRequired"));
     }
     const trade = await createManualTrade(user.uid, body);
     return NextResponse.json(trade);

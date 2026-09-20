@@ -9,10 +9,12 @@ import {
 } from "@/lib/journal/api-client";
 import { hardReplace } from "@/lib/navigation";
 import { BillingLock } from "@/components/billing/BillingLock";
+import { useT } from "@/components/i18n/LocaleProvider";
 import { useAuth } from "./AuthProvider";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { firebaseUser, loading, profile } = useAuth();
+  const t = useT();
   const pathname = usePathname();
   const [billing, setBilling] = useState<BillingLockInfo | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
@@ -41,7 +43,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   if (loading || (firebaseUser && billingLoading)) {
     return (
       <div className="min-h-full flex items-center justify-center text-[var(--paper-dim)] text-sm">
-        Laden…
+        {t("common.loading")}
       </div>
     );
   }
@@ -52,7 +54,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-full flex items-center justify-center p-8">
         <div className="pl-empty max-w-md text-center">
-          Dit account is gedeactiveerd. Neem contact op met de academy.
+          {t("auth.disabled")}
         </div>
       </div>
     );

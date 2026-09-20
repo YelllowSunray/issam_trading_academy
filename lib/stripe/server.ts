@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { ApiError } from "@/lib/api/errors";
 import { isVipPlanId, type VipPlanId } from "@/lib/platform/plans";
+import { tRequest } from "@/lib/i18n/server";
 
 function stripeSecret() {
   return process.env.STRIPE_SECRET_KEY || "";
@@ -41,14 +42,14 @@ export function publicPlanAvailability() {
 
 async function stripeGet(path: string): Promise<Record<string, unknown>> {
   const secret = stripeSecret();
-  if (!secret) throw new ApiError("Stripe is niet geconfigureerd", 503);
+  if (!secret) throw new ApiError("Stripe is not configured", 503);
   const res = await fetch(`https://api.stripe.com/v1/${path}`, {
     headers: { Authorization: `Bearer ${secret}` },
   });
   const json = (await res.json()) as Record<string, unknown>;
   if (!res.ok) {
     const err = json.error as { message?: string } | undefined;
-    throw new ApiError(err?.message || "Stripe-fout", res.status);
+    throw new ApiError(err?.message || "Stripe error", res.status);
   }
   return json;
 }
@@ -58,7 +59,7 @@ async function stripeForm(
   params: Record<string, string>,
 ): Promise<Record<string, unknown>> {
   const secret = stripeSecret();
-  if (!secret) throw new ApiError("Stripe is niet geconfigureerd", 503);
+  if (!secret) throw new ApiError("Stripe is not configured", 503);
   const body = new URLSearchParams(params);
   const res = await fetch(`https://api.stripe.com/v1/${path}`, {
     method: "POST",
@@ -71,7 +72,7 @@ async function stripeForm(
   const json = (await res.json()) as Record<string, unknown>;
   if (!res.ok) {
     const err = json.error as { message?: string } | undefined;
-    throw new ApiError(err?.message || "Stripe-fout", res.status);
+    throw new ApiError(err?.message || "Stripe error", res.status);
   }
   return json;
 }
@@ -87,7 +88,7 @@ export async function createCheckoutSession(input: {
   const { planId, priceId } = stripePriceForPlan(input.planId);
   if (!priceId) {
     throw new ApiError(
-      `Dit VIP-pakket (${planId}) is nog niet gekoppeld in Stripe.`,
+      await tRequest("api.vipPlanMissing", { plan: planId }),
       503,
     );
   }

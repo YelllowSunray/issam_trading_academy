@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useT } from "@/components/i18n/LocaleProvider";
 import {
   fetchAiChat,
   fetchDailyBrief,
@@ -12,6 +13,7 @@ import {
 import { AiRichText } from "./AiRichText";
 
 export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
+  const t = useT();
   const [brief, setBrief] = useState<DailyBrief | null>(null);
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [question, setQuestion] = useState("");
@@ -23,12 +25,12 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
   useEffect(() => {
     fetchDailyBrief()
       .then(setBrief)
-      .catch((e) => setError(e instanceof Error ? e.message : "AI laden mislukt"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("ai.loadFailed")))
       .finally(() => setLoading(false));
     fetchAiChat()
       .then((r) => setMessages(r.messages || []))
       .catch(() => {});
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
@@ -40,7 +42,7 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
     try {
       setBrief(await regenerateDailyBrief());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Genereren mislukt");
+      setError(e instanceof Error ? e.message : t("ai.genFailed"));
     } finally {
       setBusy(false);
     }
@@ -67,7 +69,7 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
         msg,
       ]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Chat mislukt");
+      setError(err instanceof Error ? err.message : t("ai.chatFailed"));
     } finally {
       setBusy(false);
     }
@@ -78,8 +80,8 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
       <div className="ai-brief">
         <div className="ai-brief-head">
           <div>
-            <div className="ai-kicker">AI · dagbriefing</div>
-            <h2>Journal-coach</h2>
+            <div className="ai-kicker">{t("ai.kicker")}</div>
+            <h2>{t("ai.title")}</h2>
           </div>
           {!readOnly && (
             <button
@@ -88,28 +90,24 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
               disabled={busy}
               onClick={() => void refreshBrief()}
             >
-              {busy ? "…" : "Opnieuw"}
+              {busy ? "…" : t("ai.again")}
             </button>
           )}
         </div>
         {loading ? (
-          <p className="ai-body dim">Briefing laden…</p>
+          <p className="ai-body dim">{t("ai.loading")}</p>
         ) : brief?.body ? (
           <AiRichText text={brief.body} />
         ) : (
           <p className="ai-body dim">
-            {readOnly
-              ? "Nog geen briefing op dit account."
-              : "Nog geen briefing. Klik Opnieuw om er een te maken."}
+            {readOnly ? t("ai.noneRead") : t("ai.none")}
           </p>
         )}
-        <p className="ai-legal">
-          Educatie over het journal. Geen beleggingsadvies, geen signalen.
-        </p>
+        <p className="ai-legal">{t("ai.legal")}</p>
       </div>
       <div className="ai-chat">
         <div className="ai-kicker">
-          {readOnly ? "Chat · alleen-lezen" : "Chat · 5 / dag"}
+          {readOnly ? t("ai.chatRead") : t("ai.chatLimit")}
         </div>
         <div className="ai-thread" ref={scroller}>
           {messages.map((m) => (
@@ -123,15 +121,13 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
           ))}
           {!messages.length && (
             <div className="ai-empty-chat">
-              {readOnly
-                ? "Hij heeft nog geen vragen gesteld."
-                : "Vraag over fouten, winrate of proces — geen “moet ik long?”."}
+              {readOnly ? t("ai.emptyRead") : t("ai.empty")}
             </div>
           )}
         </div>
         {error && <div className="ai-error">{error}</div>}
         {readOnly ? (
-          <p className="ai-legal">Je ziet zijn chat. Antwoorden kan hij zelf.</p>
+          <p className="ai-legal">{t("ai.youSee")}</p>
         ) : (
           <form onSubmit={(e) => void onChat(e)} className="ai-form">
             <input
@@ -139,10 +135,10 @@ export function AiCoach({ readOnly = false }: { readOnly?: boolean }) {
               value={question}
               disabled={busy}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Vraag over je journal…"
+              placeholder={t("ai.placeholder")}
             />
             <button className="tb-addbtn" type="submit" disabled={busy}>
-              Stuur
+              {t("ai.send")}
             </button>
           </form>
         )}

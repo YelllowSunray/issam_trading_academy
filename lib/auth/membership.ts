@@ -8,10 +8,10 @@ export const MEMBERSHIP_STATUSES: MembershipStatus[] = [
 ];
 
 export const MEMBERSHIP_LABELS: Record<MembershipStatus, string> = {
-  none: "Geen toegang",
+  none: "No access",
   coaching_free: "1:1 coaching",
   subscriber: "VIP",
-  expired: "Abonnement verlopen",
+  expired: "Subscription expired",
 };
 
 export function normalizeMembership(

@@ -4,15 +4,13 @@ import { requireAuthUser } from "@/lib/auth/request";
 import { isStripeReady, createCheckoutSession } from "@/lib/stripe/server";
 import { appOrigin } from "@/lib/platform/site";
 import { getUserProfile, setStripeIds } from "@/lib/users/store";
+import { tRequest } from "@/lib/i18n/server";
 
 export async function POST(req: Request) {
   return withApiError(async () => {
     const user = await requireAuthUser(req, { allowWithoutMembership: true });
     if (!isStripeReady()) {
-      return jsonError(
-        "Stripe is nog niet geconfigureerd. Vraag Issam om je toegang te geven.",
-        503,
-      );
+      return jsonError(await tRequest("api.stripeMissing"), 503);
     }
     const origin = appOrigin(req);
     const body = (await req.json().catch(() => ({}))) as { planId?: string };
