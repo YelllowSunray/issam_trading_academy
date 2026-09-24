@@ -15,6 +15,7 @@ import {
   fetchSettings,
   fetchStatus,
   saveAnnotation,
+  syncMyCloudAccounts,
   saveSettings,
   uploadImage,
 } from "@/lib/journal/api-client";
@@ -39,8 +40,9 @@ import { TradeModal } from "./TradeModal";
 type Page = "journal" | "dashboard" | "backtest";
 
 /** Status/online poll — keep light. Full trade reload only on sync changes. */
-const MT5_STATUS_POLL_MS = 45_000;
+const MT5_STATUS_POLL_MS = 20_000;
 const MT5_ACCOUNTS_POLL_MS = 3 * 60_000;
+const CLOUD_SYNC_MS = 60_000;
 
 export function JournalApp() {
   const t = useT();
@@ -286,6 +288,27 @@ export function JournalApp() {
     }, MT5_STATUS_POLL_MS);
     return () => clearInterval(id);
   }, [pollMt5, selectedLogin, asUser]);
+
+  useEffect(() => {
+    if (authLoading || !profile) return;
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        await syncMyCloudAccounts();
+        if (!cancelled) await pollMt5(selectedLogin, { full: true });
+      } catch {
+        /* vendor/cron can still fill in */
+      }
+    };
+    void pull();
+    const id = setInterval(() => {
+      void pull();
+    }, CLOUD_SYNC_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [authLoading, profile?.uid, asUser, pollMt5, selectedLogin]);
 
   const visibleMt5 = useMemo(() => {
     if (!selectedLogin) return mt5Trades;

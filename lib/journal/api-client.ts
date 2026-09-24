@@ -831,7 +831,24 @@ export async function fetchMyCloudSync() {
       lastSyncAt: string | null;
       lastError: string | null;
     }>;
-  }>(await fetch("/api/cloud-sync", { headers: await authHeaders() }));
+  }>(
+    await fetch(withAsUser("/api/cloud-sync"), {
+      headers: await authHeaders(),
+    }),
+  );
+}
+
+export async function syncMyCloudAccounts() {
+  return parseJson<{
+    ok: boolean;
+    skipped?: string;
+    results: CloudSyncResult[];
+  }>(
+    await fetch(withAsUser("/api/cloud-sync"), {
+      method: "POST",
+      headers: await authHeaders(true),
+    }),
+  );
 }
 
 export async function setBillingExceeded(exceeded: boolean, reason?: string) {

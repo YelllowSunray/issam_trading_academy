@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useI18n } from "@/components/i18n/LocaleProvider";
+import { MarketsChartPanel } from "@/components/markets/MarketsChartPanel";
 import { MemberPage } from "@/components/platform/MemberPage";
 import { SignalCard } from "@/components/signals/SignalCard";
+import { instrumentForTicker } from "@/lib/markets/instruments";
 import {
   deleteGoal,
   fetchDashboard,
@@ -92,6 +94,21 @@ function DashboardInner() {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedInstrument = selectedTicker
+    ? instrumentForTicker(selectedTicker)
+    : null;
+
+  function openTickerChart(tickerId: string) {
+    setSelectedTicker(tickerId);
+  }
+
+  useEffect(() => {
+    if (!selectedTicker) return;
+    chartRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedTicker]);
 
   const load = useCallback(() => {
     fetchDashboard()
@@ -197,56 +214,110 @@ function DashboardInner() {
 
       {tickers.length ? (
         <div className="ticker-row">
-          {tickers.map((t) => {
-            const up = (t.change24h ?? 0) >= 0;
+          {tickers.map((row) => {
+            const up = (row.change24h ?? 0) >= 0;
+            const active = selectedTicker === row.id;
             return (
-              <div key={t.id} className="ticker-card">
+              <button
+                key={row.id}
+                type="button"
+                className={`ticker-card${active ? " active" : ""}`}
+                onClick={() => openTickerChart(row.id)}
+              >
                 <div className="sym">
-                  {t.badge} · {t.symbol}
+                  {row.badge} · {row.symbol}
                 </div>
-                <div className="px">{formatPrice(t.price, t.symbol)}</div>
+                <div className="px">{formatPrice(row.price, row.symbol)}</div>
                 <div className={up ? "chg-up" : "chg-down"}>
-                  {t.change24h == null
+                  {row.change24h == null
                     ? "—"
-                    : `${up ? "+" : ""}${t.change24h.toFixed(2)}%`}
+                    : `${up ? "+" : ""}${row.change24h.toFixed(2)}%`}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       ) : null}
 
       <div className="desk-layout">
-        <section className="tj-panel" style={{ marginBottom: 0 }}>
-          <div className="ttl">{t("dashboard.marketDesk")}</div>
-          <p className="pl-sub2" style={{ marginBottom: 12 }}>
-            {t("dashboard.marketLead")}
-          </p>
-          {tickers.length ? (
-            <div className="bias-grid">
-              {tickers.map((row) => {
-                const up = (row.change24h ?? 0) >= 0;
-                return (
-                  <article key={`${row.id}-bias`} className="bias-card">
-                    <header>
-                      <h3>{row.symbol}</h3>
-                      <span className={up ? "chg-up" : "chg-down"}>
-                        {row.change24h == null
-                          ? "—"
-                          : `${up ? "+" : ""}${row.change24h.toFixed(2)}% · ${up ? "Bullish" : "Bearish"}`}
-                      </span>
-                    </header>
-                    <p className="pl-sub2" style={{ marginTop: 8 }}>
-                      {t("dashboard.bias", { price: formatPrice(row.price, row.symbol) })}
-                    </p>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="pl-sub2">{t("dashboard.pricesLoading")}</p>
-          )}
-        </section>
+        <div className="desk-primary">
+          <section className="tj-panel" style={{ marginBottom: 0 }}>
+            <div className="ttl">{t("dashboard.marketDesk")}</div>
+            <p className="pl-sub2" style={{ marginBottom: 12 }}>
+              {t("dashboard.marketLead")}
+            </p>
+            {tickers.length ? (
+              <div className="bias-grid">
+                {tickers.map((row) => {
+                  const up = (row.change24h ?? 0) >= 0;
+                  const active = selectedTicker === row.id;
+                  return (
+                    <button
+                      key={`${row.id}-bias`}
+                      type="button"
+                      className={`bias-card${active ? " active" : ""}`}
+                      onClick={() => openTickerChart(row.id)}
+                    >
+                      <header>
+                        <h3>{row.symbol}</h3>
+                        <span className={up ? "chg-up" : "chg-down"}>
+                          {row.change24h == null
+                            ? "—"
+                            : `${up ? "+" : ""}${row.change24h.toFixed(2)}% · ${up ? "Bullish" : "Bearish"}`}
+                        </span>
+                      </header>
+                      <p className="pl-sub2" style={{ marginTop: 8 }}>
+                        {t("dashboard.bias", { price: formatPrice(row.price, row.symbol) })}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="pl-sub2">{t("dashboard.pricesLoading")}</p>
+            )}
+            {selectedInstrument ? (
+              <div ref={chartRef} className="desk-inline-chart">
+                <div className="dx-panel-head">
+                  <div className="ttl">
+                    {selectedInstrument.label} · {t("dashboard.chart24h")}
+                  </div>
+                  <button
+                    type="button"
+                    className="pl-reset-btn"
+                    onClick={() => setSelectedTicker(null)}
+                  >
+                    {t("common.close")}
+                  </button>
+                </div>
+                <MarketsChartPanel
+                  height={320}
+                  showCaption={false}
+                  showChips={false}
+                  symbol={selectedInstrument.tvSymbol}
+                  interval="15"
+                  range="1D"
+                  hideToolbar
+                />
+              </div>
+            ) : null}
+          </section>
+
+          {!selectedInstrument ? (
+            <section className="tj-panel desk-charts" style={{ marginBottom: 0 }}>
+              <div className="dx-panel-head">
+                <div className="ttl">{t("dashboard.charts")}</div>
+                <Link href="/markets" className="pl-reset-btn">
+                  {t("dashboard.openCharts")}
+                </Link>
+              </div>
+              <p className="pl-sub2" style={{ marginBottom: 12 }}>
+                {t("dashboard.chartsLead")}
+              </p>
+              <MarketsChartPanel height={360} showCaption={false} />
+            </section>
+          ) : null}
+        </div>
 
         <section className="tj-panel" style={{ marginBottom: 0 }}>
           <div className="ttl">{t("dashboard.capitalFlow")}</div>

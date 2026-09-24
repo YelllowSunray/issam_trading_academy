@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/api2trade-sync",
-      "schedule": "*/2 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }

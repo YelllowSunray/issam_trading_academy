@@ -29,6 +29,7 @@ import type { CloudAccountRecord, CloudSyncResult } from "./types";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const FIRST_SYNC_LOOKBACK_MS = 10 * 365 * DAY_MS;
 const INCREMENTAL_OVERLAP_MS = 2 * DAY_MS;
+const MIN_INCREMENTAL_MS = 21 * DAY_MS;
 const STALE_SYNC_LOOKBACK_MS = 400 * DAY_MS;
 
 function isoNoMs(d: Date) {
@@ -78,7 +79,10 @@ export async function syncCloudAccount(
     const from = new Date(
       target.lastSyncAt
         ? Math.max(
-            Date.parse(target.lastSyncAt) - INCREMENTAL_OVERLAP_MS,
+            Math.min(
+              Date.parse(target.lastSyncAt) - INCREMENTAL_OVERLAP_MS,
+              Date.now() - MIN_INCREMENTAL_MS,
+            ),
             Date.now() - STALE_SYNC_LOOKBACK_MS,
           )
         : Date.now() - FIRST_SYNC_LOOKBACK_MS,

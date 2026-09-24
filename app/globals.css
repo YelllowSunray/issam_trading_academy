@@ -3046,10 +3046,21 @@ button:focus-visible {
   margin-bottom: 16px;
 }
 .ticker-card {
+  appearance: none;
   background: var(--ink-2);
   border: 1px solid var(--line-strong);
   border-radius: 16px;
   padding: 12px 14px;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.ticker-card.active,
+.bias-card.active {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.28);
 }
 .ticker-card .sym {
   font-size: 11px;
@@ -3070,6 +3081,24 @@ button:focus-visible {
   grid-template-columns: 1.4fr 0.9fr;
   gap: 14px;
   margin-bottom: 16px;
+  align-items: start;
+}
+.desk-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.desk-charts {
+  min-width: 0;
+}
+.markets-chart-panel .plat-chip-row {
+  margin-bottom: 10px;
+}
+.markets-chart-frame {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #0e131b;
 }
 .bias-grid {
   display: grid;
@@ -3077,10 +3106,19 @@ button:focus-visible {
   gap: 10px;
 }
 .bias-card {
+  appearance: none;
   background: var(--ink-3);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 14px;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.desk-inline-chart {
+  margin-top: 14px;
 }
 .bias-card header {
   display: flex;

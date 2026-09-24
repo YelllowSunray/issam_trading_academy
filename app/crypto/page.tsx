@@ -135,8 +135,8 @@ function CryptoInner() {
           <h1 className="tj-title">{t("crypto.title")}</h1>
           <p className="pl-sub">{t("crypto.lead")}</p>
           <div className="plat-chip-row" style={{ marginTop: 10 }}>
-            <Link href="/markets" className="pl-reset-btn">
-              Markets
+            <Link href="/dashboard" className="pl-reset-btn">
+              {t("nav.dashboard")}
             </Link>
             <Link href="/news" className="pl-reset-btn">
               {t("crypto.news")}

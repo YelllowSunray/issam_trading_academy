@@ -5,11 +5,20 @@ import { useEffect, useRef } from "react";
 export function TradingViewChart({
   symbol,
   height = 420,
+  locale = "en",
+  interval = "60",
+  range,
+  hideToolbar = false,
 }: {
   symbol: string;
   height?: number;
+  locale?: string;
+  interval?: string;
+  range?: string;
+  hideToolbar?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const tvLocale = locale === "nl" ? "nl_NL" : "en";
 
   useEffect(() => {
     const el = ref.current;
@@ -22,12 +31,13 @@ export function TradingViewChart({
     script.innerHTML = JSON.stringify({
       autosize: true,
       symbol,
-      interval: "60",
+      interval,
+      ...(range ? { range } : {}),
       timezone: "Europe/Amsterdam",
       theme: "dark",
       style: "1",
-      locale: "nl_NL",
-      hide_top_toolbar: false,
+      locale: tvLocale,
+      hide_top_toolbar: hideToolbar,
       allow_symbol_change: true,
       calendar: false,
       support_host: "https://www.tradingview.com",
@@ -36,7 +46,7 @@ export function TradingViewChart({
     return () => {
       el.innerHTML = "";
     };
-  }, [symbol]);
+  }, [symbol, tvLocale, interval, range, hideToolbar]);
 
   return (
     <div className="tv-wrap" style={{ height }}>

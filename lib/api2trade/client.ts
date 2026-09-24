@@ -144,7 +144,7 @@ function historyList(raw: unknown): HistoryOrder[] {
   if (Array.isArray(raw)) return raw.filter((x) => x && typeof x === "object") as HistoryOrder[];
   const rec = asRecord(raw);
   if (!rec) return [];
-  for (const key of ["data", "orders", "items", "history"]) {
+  for (const key of ["data", "orders", "items", "history", "internalDeals"]) {
     if (Array.isArray(rec[key])) return rec[key] as HistoryOrder[];
   }
   return [];
