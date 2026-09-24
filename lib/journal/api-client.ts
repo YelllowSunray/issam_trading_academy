@@ -820,6 +820,22 @@ export async function unlinkAdminCloudAccount(
   );
 }
 
+export async function connectMyCloudAccount(body: {
+  login: string;
+  password: string;
+  server: string;
+  name?: string;
+  platform?: "Metatrader 5" | "Metatrader 4";
+}) {
+  return parseJson<{ ok: boolean; result: CloudSyncResult }>(
+    await fetch("/api/cloud-accounts", {
+      method: "POST",
+      headers: await authHeaders(true),
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
 export async function fetchMyCloudSync() {
   return parseJson<{
     accounts: Array<{

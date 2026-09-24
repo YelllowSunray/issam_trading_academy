@@ -20,6 +20,7 @@ import {
   ensureSeedAccount,
   getCloudAccount,
   listCloudAccounts,
+  listCloudAccountsForUid,
   resolveMember,
   updateCloudAccount,
   upsertCloudAccount,
@@ -244,6 +245,12 @@ export async function registerStudentAccount(input: {
   const password = input.password;
   if (!login || !server || !password) {
     throw new ApiError(await tRequest("api.loginServerPasswordRequired"), 400);
+  }
+  const already = (await listCloudAccountsForUid(profile.uid)).some(
+    (account) => account.login === login,
+  );
+  if (already) {
+    throw new ApiError(await tRequest("api.mt5AlreadyLinked"), 409);
   }
 
   const created = await registerAccount({

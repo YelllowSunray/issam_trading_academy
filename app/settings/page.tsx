@@ -6,16 +6,14 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { useI18n } from "@/components/i18n/LocaleProvider";
 import { PlatformShell } from "@/components/platform/PlatformShell";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
-import { CopyButton } from "@/components/ui/CopyButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { isActiveMembership } from "@/lib/auth/membership";
 import { dateLocale } from "@/lib/i18n";
 import {
   confirmCheckout,
-  fetchMt5SecretMeta,
+  connectMyCloudAccount,
   fetchMyCloudSync,
   openBillingPortal,
-  rotateMt5Secret,
   fetchPublicPricing,
 } from "@/lib/journal/api-client";
 import { VipPlans } from "@/components/platform/VipPlans";
@@ -24,11 +22,6 @@ import { VIP_PLANS, type VipPlan } from "@/lib/platform/plans";
 function SettingsInner() {
   const { profile, logout, updateDisplayName, refreshProfile } = useAuth();
   const { t, locale } = useI18n();
-  const [meta, setMeta] = useState<{
-    configured: boolean;
-    createdAt: string | null;
-  } | null>(null);
-  const [plainSecret, setPlainSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [profileInfo, setProfileInfo] = useState<string | null>(null);
   const [cloudAccounts, setCloudAccounts] = useState<
@@ -37,16 +30,18 @@ function SettingsInner() {
   const [busy, setBusy] = useState(false);
   const [profileBusy, setProfileBusy] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || "");
+  const [mt5Login, setMt5Login] = useState("");
+  const [mt5Server, setMt5Server] = useState("");
+  const [mt5Password, setMt5Password] = useState("");
+  const [mt5Name, setMt5Name] = useState("");
+  const [mt5Platform, setMt5Platform] = useState<"Metatrader 5" | "Metatrader 4">(
+    "Metatrader 5",
+  );
   const [plans, setPlans] = useState<Array<VipPlan & { available?: boolean }>>(
     VIP_PLANS,
   );
   const [stripeReady, setStripeReady] = useState(false);
   const member = isActiveMembership(profile?.membership, profile?.role);
-
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "http://127.0.0.1:3000";
-  const tradeUrl = `${origin}/api/mt5-trade`;
-  const heartbeatUrl = `${origin}/api/heartbeat`;
 
   useEffect(() => {
     setDisplayName(profile?.displayName || "");
@@ -63,13 +58,10 @@ function SettingsInner() {
 
   useEffect(() => {
     if (!member) return;
-    fetchMt5SecretMeta()
-      .then(setMeta)
-      .catch((e) => setError(e instanceof Error ? e.message : t("common.loadFailed")));
     fetchMyCloudSync()
-      .then((d) => setCloudAccounts(d.accounts))
+      .then((d) => setCloudAccounts(d.accounts || []))
       .catch(() => setCloudAccounts([]));
-  }, [member, t]);
+  }, [member]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -96,19 +88,31 @@ function SettingsInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProfile]);
 
-  async function handleRotate() {
-    if (meta?.configured) {
-      const ok = window.confirm(t("settings.rotateConfirm"));
-      if (!ok) return;
-    }
+  async function onConnectCloud(e: FormEvent) {
+    e.preventDefault();
     setBusy(true);
     setError(null);
+    setProfileInfo(null);
     try {
-      const res = await rotateMt5Secret();
-      setPlainSecret(res.secret);
-      setMeta({ configured: true, createdAt: res.createdAt });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("common.failed"));
+      const res = await connectMyCloudAccount({
+        login: mt5Login,
+        password: mt5Password,
+        server: mt5Server,
+        name: mt5Name.trim() || undefined,
+        platform: mt5Platform,
+      });
+      setMt5Password("");
+      if (!res.result.ok) {
+        throw new Error(res.result.error || t("admin.linkFailed"));
+      }
+      setMt5Login("");
+      setMt5Server("");
+      setMt5Name("");
+      setProfileInfo(t("settings.cloudAdded"));
+      const next = await fetchMyCloudSync();
+      setCloudAccounts(next.accounts || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common.failed"));
     } finally {
       setBusy(false);
     }
@@ -137,6 +141,12 @@ function SettingsInner() {
         backHref="/dashboard"
         backLabel={t("settings.back")}
       />
+
+      {error && (
+        <div className="pl-empty" style={{ marginBottom: 12, color: "var(--bear)" }}>
+          {error}
+        </div>
+      )}
 
       <div className="tj-panel">
         <div className="ttl" style={{ marginBottom: 10 }}>
@@ -242,8 +252,6 @@ function SettingsInner() {
       </div>
 
       {member && (
-      <>
-      {cloudAccounts.length > 0 && (
         <div className="tj-panel">
           <div className="ttl" style={{ marginBottom: 10 }}>
             {t("settings.cloudMt5")}
@@ -251,112 +259,98 @@ function SettingsInner() {
           <p className="pl-sub2" style={{ marginBottom: 12 }}>
             {t("settings.cloudLead")}
           </p>
-          {cloudAccounts.map((a) => (
-            <div key={a.accountId} style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 600 }}>
-                {a.login}
-                {a.name ? ` · ${a.name}` : ""}
+          {cloudAccounts.length ? (
+            cloudAccounts.map((a) => (
+              <div key={a.accountId} style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 600 }}>
+                  {a.login}
+                  {a.name ? ` · ${a.name}` : ""}
+                  {a.server ? ` · ${a.server}` : ""}
+                </div>
+                <div className="pl-sub2">
+                  {a.status}
+                  {a.lastSyncAt
+                    ? t("settings.lastSync", {
+                        when: new Date(a.lastSyncAt).toLocaleString(dateLocale(locale)),
+                      })
+                    : t("settings.noSync")}
+                </div>
+                {a.lastError ? (
+                  <div className="pl-sub2">{a.lastError}</div>
+                ) : null}
               </div>
-              <div className="pl-sub2">
-                {a.status}
-                {a.lastSyncAt
-                  ? t("settings.lastSync", {
-                      when: new Date(a.lastSyncAt).toLocaleString(dateLocale(locale)),
-                    })
-                  : t("settings.noSync")}
-              </div>
-              {a.lastError ? (
-                <div className="pl-sub2">{a.lastError}</div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="tj-panel">
-        <div
-          className="ttl"
-          style={{
-            marginBottom: 10,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          MT5 INGEST SECRET
-          {meta && (
-            <span className={`status-chip ${meta.configured ? "on" : "off"}`}>
-              {meta.configured ? t("settings.secretConfigured") : t("settings.secretMissing")}
-            </span>
+            ))
+          ) : (
+            <p className="pl-sub2" style={{ marginBottom: 12 }}>
+              {t("settings.cloudNoAccounts")}
+            </p>
           )}
+          <form onSubmit={(e) => void onConnectCloud(e)}>
+            <div className="tj-field">
+              <div className="lbl">{t("settings.cloudLogin")}</div>
+              <input
+                className="tj-input"
+                value={mt5Login}
+                onChange={(e) => setMt5Login(e.target.value)}
+                placeholder="24615704"
+                required
+                autoComplete="off"
+              />
+            </div>
+            <div className="tj-field">
+              <div className="lbl">{t("settings.cloudServer")}</div>
+              <input
+                className="tj-input"
+                value={mt5Server}
+                onChange={(e) => setMt5Server(e.target.value)}
+                placeholder={t("settings.cloudServerHint")}
+                required
+                autoComplete="off"
+              />
+            </div>
+            <div className="tj-field">
+              <div className="lbl">{t("settings.cloudPassword")}</div>
+              <input
+                className="tj-input"
+                type="password"
+                value={mt5Password}
+                onChange={(e) => setMt5Password(e.target.value)}
+                placeholder={t("admin.investorHint")}
+                required
+                autoComplete="new-password"
+              />
+              <div className="hint" style={{ marginTop: 6 }}>
+                {t("settings.cloudPasswordHint")}
+              </div>
+            </div>
+            <div className="tj-field">
+              <div className="lbl">{t("settings.cloudPlatform")}</div>
+              <select
+                className="tj-input"
+                value={mt5Platform}
+                onChange={(e) =>
+                  setMt5Platform(e.target.value as "Metatrader 5" | "Metatrader 4")
+                }
+              >
+                <option value="Metatrader 5">MetaTrader 5</option>
+                <option value="Metatrader 4">MetaTrader 4</option>
+              </select>
+            </div>
+            <div className="tj-field">
+              <div className="lbl">{t("settings.cloudName")}</div>
+              <input
+                className="tj-input"
+                value={mt5Name}
+                onChange={(e) => setMt5Name(e.target.value)}
+                placeholder={t("settings.cloudNamePlaceholder")}
+                autoComplete="off"
+              />
+            </div>
+            <button className="tb-addbtn" type="submit" disabled={busy}>
+              {busy ? t("settings.cloudAdding") : t("settings.cloudAdd")}
+            </button>
+          </form>
         </div>
-        <p className="pl-sub2" style={{ marginBottom: 12 }}>
-          {t("settings.secretLead")}
-        </p>
-        {meta?.configured && meta.createdAt && (
-          <div className="pl-sub2" style={{ marginBottom: 12 }}>
-            {t("settings.lastGenerated", {
-              when: new Date(meta.createdAt).toLocaleString(dateLocale(locale)),
-            })}
-          </div>
-        )}
-        {plainSecret && (
-          <div className="pl-empty" style={{ marginBottom: 12 }}>
-            {t("settings.newSecret")}
-            <div className="code-row">
-              <code>{plainSecret}</code>
-              <CopyButton value={plainSecret} />
-            </div>
-          </div>
-        )}
-        {error && (
-          <div className="pl-empty" style={{ marginBottom: 12, color: "var(--bear)" }}>
-            {error}
-          </div>
-        )}
-        <button
-          type="button"
-          className="tb-addbtn"
-          disabled={busy}
-          onClick={() => void handleRotate()}
-        >
-          {busy
-            ? t("settings.generating")
-            : meta?.configured
-              ? t("settings.rotate")
-              : t("settings.generate")}
-        </button>
-      </div>
-
-      <div className="tj-panel">
-        <div className="ttl" style={{ marginBottom: 10 }}>
-          EA SETUP
-        </div>
-        <div style={{ fontSize: 12, lineHeight: 1.8, color: "var(--paper-dim)" }}>
-          <div style={{ marginBottom: 10 }}>
-            <div>TradeURL</div>
-            <div className="code-row">
-              <code>{tradeUrl}</code>
-              <CopyButton value={tradeUrl} />
-            </div>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <div>HeartbeatURL</div>
-            <div className="code-row">
-              <code>{heartbeatUrl}</code>
-              <CopyButton value={heartbeatUrl} />
-            </div>
-          </div>
-          <div>
-            <div>WebRequest allowlist in MT5</div>
-            <div className="code-row">
-              <code>{origin}</code>
-              <CopyButton value={origin} />
-            </div>
-          </div>
-        </div>
-      </div>
-      </>
       )}
     </div>
   );
